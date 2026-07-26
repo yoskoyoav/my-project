@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הנחיות שימוש והערות גרסה - Deshe_LayerMaker</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm 12mm;
+            background-color: #f8fafc;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #1e3a8a;
+            --accent-color: #2563eb;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+            --warning-border: #f59e0b;
+            --warning-bg: #fffbeb;
+            --warning-text: #b45309;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 1rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--border-color);
+        }
+
+        .main-header {
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .subtitle {
+            color: #64748b;
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        .section-title {
+            color: var(--primary-color);
+            font-size: 1.3rem;
+            margin-top: 0;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .steps-list {
+            list-style: none;
+            counter-reset: step-counter;
+            padding-right: 0;
+            margin: 0 0 1.5rem 0;
+        }
+
+        .steps-list > li {
+            position: relative;
+            padding-right: 3.2rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .steps-list > li::before {
+            content: counter(step-counter);
+            counter-increment: step-counter;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 2.2rem;
+            height: 2.2rem;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 50%;
+            display: table;
+            text-align: center;
+            line-height: 2.2rem;
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+
+        .steps-list ul {
+            padding-right: 1.2rem;
+            margin-top: 0.5rem;
+        }
+
+        code {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-family: Monaco, Consolas, "Courier New", monospace;
+            font-size: 0.88em;
+            direction: ltr;
+            display: inline-block;
+            border: 1px solid #e2e8f0;
+        }
+
+        .path-block {
+            display: block;
+            margin: 0.5rem 0;
+            word-break: break-all;
+        }
+
+        /* Collapsible Section Details Styling */
+        details {
+            background-color: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-top: 2rem;
+            transition: all 0.2s ease;
+        }
+
+        details[open] {
+            background-color: #ffffff;
+            border-color: #cbd5e1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            padding-bottom: 1.2rem;
+        }
+
+        summary {
+            font-weight: 600;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 1.05rem;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            outline: none;
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        summary::after {
+            content: "◄";
+            font-size: 0.8rem;
+            color: var(--accent-color);
+            transition: transform 0.2s;
+        }
+
+        details[open] summary::after {
+            transform: rotate(-90deg);
+        }
+
+        summary:hover {
+            color: var(--accent-color);
+        }
+
+        .badge {
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-size: 0.85rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .changelog-content {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .changelog-content ul {
+            padding-right: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .changelog-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        .alert-box {
+            background-color: var(--warning-bg);
+            border-right: 4px solid var(--warning-border);
+            color: var(--warning-text);
+            padding: 1rem 1.2rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+
+        .alert-box strong {
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+
+        /* Printable / Standard fallback */
+        @media print {
+            details {
+                border: none;
+                padding: 0;
+            }
+            details[open] summary, summary {
+                display: block;
+            }
+            summary::after {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div class="main-header">
+        <h1>מדריך למשתמש - Deshe_LayerMaker</h1>
+        <p class="subtitle">הנחיות ועדכוני גרסה אחרונים</p>
+    </div>
+
+    <!-- Section 1: Instructions -->
+    <section>
+        <h2 class="section-title">הנחיות להפעלת הכלי</h2>
+        <ol class="steps-list">
+            <li><strong>חילוץ התיקייה:</strong> חלץ את התיקייה המכילה את הכלי למחשב.</li>
+            <li><strong>פתיחת פרויקט:</strong> פתח פרויקט ב-ArcGIS Pro (פרויקט קיים או חדש).</li>
+            <li>
+                <strong>ייבוא הטולבוקס:</strong> ייבא דרך חלון ה-Catalog את הקובץ:
+                <code class="path-block">DesheTools\execution_scripts\DesheTools.atbx</code>
+                <small>*(לפני ההרצה – יש לוודא שבפרויקט הנוכחי קיימת מפה פעילה)*</small>
+            </li>
+            <li><strong>פתיחת הסקריפט:</strong> פתח את הסקריפט <code>create new layer</code>.</li>
+            <li><strong>בחירת השכבה:</strong> בחר את השכבה אותה תרצה להוסיף והרץ את הסקריפט.</li>
+            <li>
+                <strong>סיום ההרצה:</strong>
+                <ul>
+                    <li>השכבה תיווצר ב-GDB שמוגדר כברירת מחדל (Default GDB).</li>
+                    <li>השכבה תתווסף אוטומטית למפה הפעילה בפרויקט.</li>
+                    <li><strong>חשוב:</strong> יש לשנות את שמות השכבות לשם ייחודי עבור הפרויקט (למשל: <code>סקר מישורי הלס_2026</code>).</li>
+                </ul>
+            </li>
+        </ol>
+    </section>
+
+    <!-- Section 2: Collapsible Release Notes -->
+    <details>
+        <summary>
+            <span>שינויים שבוצעו בגרסה האחרונה <span class="badge">220225</span></span>
+        </summary>
+        <div class="changelog-content">
+            <ul>
+                <li>הוספת ערכים לדומיין <code>zoology_survey</code>.</li>
+                <li>עדכון שם השדה: <strong>"מספר גלאי/מצלמה/גלאי/נקודת דיגום"</strong>.</li>
+                <li>הוספת שדה חדש <code>Completed</code> בשכבות הערות קויות/נקודתיות סוקר והזנת דומיין (כן/לא).</li>
+            </ul>
+
+            <div class="alert-box">
+                <strong>⚠️ שימו לב - דגש לפני הרצה!</strong>
+                אם עובדים על GDB עם דומיינים קיימים (מהרצה קודמת של הכלי), יש להסיר את הדומיין <code>zoology_survey</code> מהשכבה בה הוא מוזן ומתוך ה-GDB. רק לאחר מכן יש להריץ.<br>
+                <em>לחילופין: ניתן לפתוח GDB חדש ללא דומיינים ולהריץ.</em>
+            </div>
+        </div>
+    </details>
+
+</div>
+
+</body>
+</html>
