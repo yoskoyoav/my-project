@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מדריך למשתמש - אוטומציית מיזוג סקרים ושמירת קשרי GlobalID</title>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #eff6ff;
+            --accent: #0284c7;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --border: #e2e8f0;
+            --success-bg: #f0fdf4;
+            --success-border: #86efac;
+            --warning-bg: #fffbeb;
+            --warning-border: #fde68a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-dark);
+            line-height: 1.65;
+            padding: 30px 15px;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            padding: 40px 50px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            border: 1px solid var(--border);
+        }
+
+        header {
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .logo-tag {
+            display: inline-block;
+            background-color: var(--primary-light);
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 1.9rem;
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.05rem;
+        }
+
+        h2 {
+            color: var(--primary);
+            font-size: 1.35rem;
+            margin-top: 35px;
+            margin-bottom: 15px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid var(--primary-light);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h3 {
+            font-size: 1.1rem;
+            color: var(--accent);
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin-bottom: 14px;
+        }
+
+        ul, ol {
+            margin-bottom: 18px;
+            padding-right: 25px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .callout {
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+
+        .callout-info {
+            background-color: var(--primary-light);
+            border-right: 4px solid var(--accent);
+            color: #1e40af;
+        }
+
+        .callout-warning {
+            background-color: var(--warning-bg);
+            border-right: 4px solid #f59e0b;
+            color: #b45309;
+        }
+
+        .callout-success {
+            background-color: var(--success-bg);
+            border-right: 4px solid #10b981;
+            color: #15803d;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: right;
+            border: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        pre {
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 18px 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            direction: ltr;
+            text-align: left;
+            font-family: "Consolas", "Courier New", monospace;
+            font-size: 0.9rem;
+            margin: 18px 0;
+            line-height: 1.5;
+        }
+
+        code {
+            font-family: "Consolas", "Courier New", monospace;
+            background-color: #f1f5f9;
+            color: #0f172a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            direction: ltr;
+            display: inline-block;
+        }
+
+        .step-box {
+            background-color: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 18px 22px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                border: none;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <span class="logo-tag">ArcGIS Pro & Pythton Automation</span>
+        <h1>מדריך למשתמש: אוטומציית מיזוג סקרים ושמירת קשרי GlobalID</h1>
+        <p class="subtitle">תהליך אוטומטי למיזוג שכבות נקודות/עומדים וטבלאות מקושרות ללא סרבול ידני</p>
+    </header>
+
+    <main>
+        <section>
+            <h2>1. מבוא ומטרת הכלי</h2>
+            <p>
+                בעת איחוד ומיזוג של סקרי שטח ב-ArcGIS Pro (באמצעות כלי ה-<code>Append</code>), מיוצרים מזהים גלובליים חדשים (<code>GlobalID</code>) עבור הרשומות הממוזגות. כתוצאה מכך, הקישור לטבלאות המקושרות (Related Tables) המתבסס על השדה <code>ParentGlobalID</code> נשבר.
+            </p>
+            <p>
+                כלי האוטומציה המעודכן מחליף את התהליך הידני המסורבל (שכלל יצירת שדות זמניים, ביצוע Joins כבדים וחישובי שדות). הכלי מבצע את מיפוי המזהים **ישירות בזיכרון המחשב (RAM)** באמצעות Python Dictionary ו-ArcPy Cursors, מעדכן את המפתחות הזרים במהירות, וממזג את הנתונים באופן חלק ובטוח.
+            </p>
+            <div class="callout callout-success">
+                <strong>יתרונות מרכזיים:</strong>
+                <ul style="margin-top: 8px; margin-bottom: 0;">
+                    <li>אפס שימוש ב-<code>AddJoin</code> – מניעת נעילות קבצים (Table Locks) וקריסות.</li>
+                    <li>אפס שדות זמניים בטבלאות המקושרות.</li>
+                    <li>הרצה בלולאה אוטומטית על כל 4 הטבלאות המקושרות במכה אחת.</li>
+                    <li>מהירות ביצוע גבוהה פי כמה מהשיטה הידנית.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <h2>2. דרישות מוקדמות והכנה</h2>
+            <p>לפני הרצת הכלי, יש לוודא את התנאים הבאים בבסיס הנתונים (GDB):</p>
+            <ol>
+                <li><strong>תאימות סכמה (Schema):</strong> מבנה השדות בשכבת המקור (התוספת) ובשכבת היעד (הבסיס) חייב להיות זהה.</li>
+                <li><strong>קיום שדה ParentGlobalID:</strong> בטבלאות המקושרות חייב להופיע שדה בשם <code>ParentGlobalID</code> מטיפוס GUID.</li>
+                <li><strong>סגירת נעילות:</strong> מומלץ לסגור את הטבלאות מתוצג תצוגה פעיל ב-ArcGIS Pro או לוודא שאין תהליך אחר שנאחז בקבצים.</li>
+            </ol>
+        </section>
+
+        <section>
+            <h2>3. מבנה הנתונים הנדרש להזנה</h2>
+            <p>הכלי מקבל שלושה פרמטרים מרכזיים:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>שם הפרמטר</th>
+                        <th>סוג הנתון</th>
+                        <th>תיאור והסבר</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>source_fc</code></td>
+                        <td>String / Layer</td>
+                        <td>שכבת המקור (התוספת) – הנקודות או העומדים שרוצים להוסיף.</td>
+                    </tr>
+                    <tr>
+                        <td><code>target_fc</code></td>
+                        <td>String / Layer</td>
+                        <td>שכבת היעד (הבסיס) – השכבה המרכזית אליה ממוזגים הנתונים.</td>
+                    </tr>
+                    <tr>
+                        <td><code>related_tables_mapping</code></td>
+                        <td>List of Tuples</td>
+                        <td>רשימה של צמדי טבלאות מקושרות בפורמט: <code>[("Source_Table", "Target_Table"), ...]</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>4. הוראות הפעלה צעד-אחר-צעד</h2>
+
+            <div class="step-box">
+                <h3><span class="step-number">1</span> פתיחת סביבת Python ב-ArcGIS Pro</h3>
+                <p>פתח את ArcGIS Pro, ועבור לטאב <strong>Analysis</strong> &larr; לחץ על <strong>Python</strong> לפתיחת חלון ה-Python Window (או פתח את מחברת ה-Jupyter הרלוונטית בפרויקט).</p>
+            </div>
+
+            <div class="step-box">
+                <h3><span class="step-number">2</span> העתקת קוד הכלי</h3>
+                <p>העתק והדבק את פונקציית האוטומציה לתוך חלון ה-Python:</p>
+<pre><code>import arcpy
+
+def append_survey_with_multiple_tables(source_fc, target_fc, related_tables_mapping):
+    temp_id_field = "ApresGlobalID"
+    
+    print(f"Processing Feature Classes: {source_fc} -> {target_fc}")
+    arcpy.management.AddField(source_fc, temp_id_field, "GUID")
+    arcpy.management.CalculateField(source_fc, temp_id_field, "!GlobalID!", "PYTHON3")
+    
+    if not arcpy.ListFields(target_fc, temp_id_field):
+        arcpy.management.AddField(target_fc, temp_id_field, "GUID")
+        
+    arcpy.management.Append(source_fc, target_fc, "NO_TEST")
+    
+    print("Building GlobalID mapping dictionary in memory...")
+    id_mapping = {}
+    where_clause = f"{temp_id_field} IS NOT NULL"
+    
+    with arcpy.da.SearchCursor(target_fc, [temp_id_field, "GlobalID"], where_clause) as cursor:
+        for row in cursor:
+            if row[0]:
+                id_mapping[row[0].upper()] = row[1].upper()
+                
+    for source_table, target_table in related_tables_mapping:
+        print(f"Updating and Appending Table: {source_table} -> {target_table}")
+        
+        with arcpy.da.UpdateCursor(source_table, ["ParentGlobalID"]) as cursor:
+            for row in cursor:
+                old_parent = row[0]
+                if old_parent and old_parent.upper() in id_mapping:
+                    row[0] = id_mapping[old_parent.upper()]
+                    cursor.updateRow(row)
+                    
+        arcpy.management.Append(source_table, target_table, "NO_TEST")
+        
+    print("Cleaning up temporary fields...")
+    arcpy.management.DeleteField(source_fc, temp_id_field)
+    print("Process Completed Successfully!")
+</code></pre>
+            </div>
+
+            <div class="step-box">
+                <h3><span class="step-number">3</span> הגדרת השכבות והרצת התהליך</h3>
+                <p>הגדר את שמות השכבות והטבלאות שברצונך למזג, והפעל את הקריאה לפונקציה:</p>
+<pre><code># 1. הגדרת שכבות הנקודות / העומדים
+source_points = "Survey_A_Points"
+target_points = "Survey_B_Points"
+
+# 2. הגדרת 4 הטבלאות המקושרות (מקור, יעד)
+tables_list = [
+    ("Survey_A_Table1", "Survey_B_Table1"),
+    ("Survey_A_Table2", "Survey_B_Table2"),
+    ("Survey_A_Table3", "Survey_B_Table3"),
+    ("Survey_A_Table4", "Survey_B_Table4")
+]
+
+# 3. הרצת האוטומציה
+append_survey_with_multiple_tables(source_points, target_points, tables_list)
+</code></pre>
+            </div>
+        </section>
+
+        <section>
+            <h2>5. ארכיטקטורת התהליך (מה קורה ברקע?)</h2>
+            <ol>
+                <li><strong>שמירת ה-GlobalID המקורי:</strong> הקוד יוצר שדה זמני בשם <code>ApresGlobalID</code> בשכבת הנקודות של התוספת ומעתיק אליו את ה-<code>GlobalID</code> המקורי.</li>
+                <li><strong>ביצוע Append לשכבת הנקודות:</strong> הנקודות מתווספות לשכבת הבסיס, ושם נוצר להן <code>GlobalID</code> חדש אוטומטית.</li>
+                <li><strong>בניית המילון בזיכרון:</strong> הקוד סורק את הרשומות החדשות בשכבת הבסיס ובונה מילון <code>id_mapping</code> שמקשר בין <code>ApresGlobalID</code> (המקור) לבין <code>GlobalID</code> (החדש).</li>
+                <li><strong>עדכון ישיר של הטבלאות המקושרות:</strong> בלולאה על 4 הטבלאות, הקוד מעדכן את שדה ה-<code>ParentGlobalID</code> ישירות בטבלת המקור לפי המילון.</li>
+                <li><strong>מיזוג הטבלאות וניקוי:</strong> הטבלאות המקושרות ממוזגות לתוך טבלאות הבסיס, ושדה העזר הזמני נמחק.</li>
+            </ol>
+        </section>
+
+        <section>
+            <h2>6. פתרון תקלות נפוצות (Troubleshooting)</h2>
+            <div class="callout callout-warning">
+                <strong>שגיאה: <code>ExecuteError: Failed to execute (Append)...</code></strong><br>
+                <strong>סיבה:</strong> אי-תאימות בשמות השדות בין טבלת המקור שטבלת היעד.<br>
+                <strong>פתרון:</strong> ודא ששמות השדות בטבלאות זהים בדיוק, או שנה את פרמטר המיזוג ל-<code>schema_type="NO_TEST"</code>.
+            </div>
+
+            <div class="callout callout-warning">
+                <strong>שגיאה: <code>ERROR 000464: Cannot get exclusive lock...</code></strong><br>
+                <strong>סיבה:</strong> הטבלה או השכבה פתוחה במצב עריכה או מוצגת בחלון אחר ב-ArcGIS Pro.<br>
+                <strong>פתרון:</strong> סגור טבלאות פתוחות (Attribute Tables), שמור עריכות (Save Edits) והרץ את הסקריפט שוב.
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>מדריך למשתמש - אוטומציית GIS | נכתב עבור סביבת ArcGIS Pro & Pythton</p>
+    </footer>
+</div>
+
+</body>
+</html>
