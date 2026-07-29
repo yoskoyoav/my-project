@@ -136,7 +136,7 @@ def calculate_corridor_scores():
     try:
         # Pre-load all ECO features once
         eco_list = []
-        with arcpy.da.SearchCursor(corridor_layer, ["SHAPE@", "Type"]) as eco_cursor:
+        with arcpy.da.SearchCursor(corridor_layer, ["SHAPE@", "TypeRTGyosh"]) as eco_cursor:
             for eco_geom, eco_type in eco_cursor:
                 eco_list.append((eco_geom, eco_type))
 
