@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מדריך למשתמש - כלי לחישוב ערכיות אקולוגית של שטחים חקלאיים</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 36px;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 24px;
+            text-decoration: underline;
+            text-decoration-color: #3498db;
+        }
+        p {
+            font-size: 16px;
+        }
+        ol, ul {
+            padding-right: 20px;
+        }
+        ol li, ul li {
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        code {
+            background-color: #eef2f5;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+            color: #c0392b;
+            direction: ltr;
+            display: inline-block;
+        }
+        a {
+            color: #2980b9;
+        }
+
+        /* Manual data tables - matches the site's light-gray legend palette */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        table.manual-table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 14.5px;
+        }
+        table.manual-table th {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            padding: 10px;
+            border: 1px solid #d5dbdb;
+            text-align: right;
+        }
+        table.manual-table td {
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            text-align: right;
+            vertical-align: top;
+        }
+        table.manual-table tr:nth-child(even) td {
+            background-color: #f9fbfb;
+        }
+
+        /* Callout boxes */
+        .note-info {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-right: 4px solid #3498db;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .note-important {
+            background-color: #fcf3f3;
+            padding: 15px;
+            border-right: 4px solid #e74c3c;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning-item {
+            background-color: #fff8f0;
+            border-right: 4px solid #e67e22;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 16px;
+        }
+        .warning-item .code-line {
+            font-weight: bold;
+            color: #d35400;
+            font-family: Consolas, monospace;
+            direction: ltr;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>כלי לחישוב ערכיות אקולוגית של שטחים חקלאיים: מדריך למשתמש</h1>
+
+    <h2>רקע</h2>
+    <p>
+        מדריך זה הוא מסמך טכני מלווה לאוטומציה שפותחה למדד הערכה אקולוגית של שטחים חקלאיים עבור סקרי טבע ונוף.
+        המדד פותח בעקבות עבודה ראשונית שהוגשה להגה"ס בדצמבר 2017 (פרלברג ועמיתיו, 2017), ודיונים בצוותי היגוי
+        שנערכו בינואר 2018 באוניברסיטת ת"א (אמדור, 2018) וביוני 2018 במוא"ז מנשה (אבישר ועמיתיה, 2018).
+    </p>
+
+    <p>אפיון השטחים החקלאיים וניתוח הערכיות האקולוגית מתבצע במספר היררכיות מרחביות, המוכלות זו בתוך זו:</p>
+    <ol>
+        <li>הרמה הארצית — שיוך למערכות אקולוגיות ולמערך מסדרונות אקולוגיים</li>
+        <li>הרמה האזורית — יחידת הנוף החקלאי (פשט הצפה, יחידות נוף, רצף שטחים פתוחים)</li>
+        <li>רמת המאפיינים הטבעיים בחלקה ובשוליה (גלי אבנים/טרסות, משארים טבעיים, ערוצי ניקוז)</li>
+        <li>רמת המאפיינים החקלאיים בחלקה עצמה (גידול בשטח פתוח/בכיסוי, חקלאות שלחין/בעל)</li>
+    </ol>
+
+    <p>המדד מחושב בשני חלקים:</p>
+    <ol>
+        <li>
+            <strong>חישוב מדדי המשנה והמשקולות</strong> — כל מדד משנה מחולק למספר דרגות ערכיות. אם מסד הנתונים שלם,
+            הניקוד הסופי של כל מדד יחושב בהתאם ל"משקל מפורט" המוצע בטבלה. אם חסר מידע באחד ממדדי המשנה — הניקוד
+            המקסימאלי של הסקאלה יתחלק בין שאר השדות הפעילים באותה קטגוריה.
+        </li>
+        <li>
+            <strong>חישוב דרגת הערכיות</strong> — חלוקה לטווחים שווי-גודל של כלל הציונים וסיווג ל-3 דרגות ערכיות
+            סופיות (נמוכה, בינונית וגבוהה).
+        </li>
+    </ol>
+
+    <h2>הנחיות מקדימות לפני הרצה</h2>
+
+    <h3>שכבות חיצוניות</h3>
+    <p>יש להשיג את כל שכבות הקלט המובאות מטה. משיקולי זמן ריצה, מומלץ לבצע <code>CLIP</code> לכל שכבה עם גבול הסקר.</p>
+
+    <div class="table-wrap">
+        <table class="manual-table">
+            <tr>
+                <th>שכבה</th>
+                <th>מקור</th>
+                <th>עיבוד</th>
+            </tr>
+            <tr>
+                <td>שכבת מסדרונות אקולוגיים</td>
+                <td><a href="https://desheoli.maps.arcgis.com/home/item.html?id=ec83340950a14142bf4367ac0eda3c1e#overview" target="_blank">שכבת מסדרונות אקולוגיים של רת"ג</a></td>
+                <td>
+                    השדה <code>TypeRTGyosh</code> — אם לא קיים יש ליצור. הערכים שהוא מכיל צריכים להיות טקסט שכולל את אחת מהמילים הבאות:
+                    <br>"ליבה", "יער", "שמורות", "שמורה מוצעת", "גנים", "יערות", "יערות תמ"א 1", "יערות תמ"א 1 ונוספים", "שמורה", "מעבר",
+                    "מעבר הכרחי - צוואר בקבוק", "מעבר אקולוגי", "מעבר אקולוגי אזורי", "מסדרון", "מסדרון אקולוגי ארצי/אזורי",
+                    "רצף שטחים פתוחים", "שטח פתוח רציף"
+                </td>
+            </tr>
+            <tr>
+                <td>שכבת יחידות אקולוגיות</td>
+                <td><a href="https://desheoli.maps.arcgis.com/home/item.html?id=8846bb023f9d433594728cd54af4ddd4#overview" target="_blank">שכבת יחידות אקולוגיות מעובדת עם אחוז השטח המוגן</a></td>
+                <td>
+                    בדיקה של השדות: <code>Protection_Percentage</code>, <code>Area_Dunam</code> — יש לוודא שהשדות קיימים ואין
+                    בהם ערכים חסרים. אם יש פערים אפשר להשלים מתוך המאמר של רותם וגוק (2021).
+                </td>
+            </tr>
+            <tr>
+                <td>חטיבות נוף</td>
+                <td><a href="https://desheoli.maps.arcgis.com/home/item.html?id=8baa5925596b43f0bdb9476f1df6090f" target="_blank">המשרד להגנת הסביבה / יחידות נוף של עמית</a></td>
+                <td>יש לוודא שהגיאומטריה והטופולוגיה של הפוליגונים תקינה. יש לתקן מקרים של overlaps/gaps/multipart</td>
+            </tr>
+            <tr>
+                <td>רצף שטחים פתוחים</td>
+                <td>כלי / רונה</td>
+                <td>
+                    יש להריץ את הכלי הייעודי ולעשות קלסיפיקציה לראסטר כך שתתקבל שכבה פוליגונלית המכילה ערכים מספריים (<code>gridcode</code>).
+                    <br>ערכים אפשריים: 0,1,2,3,4,5,6
+                </td>
+            </tr>
+            <tr>
+                <td>שכבת ערוצי ניקוז</td>
+                <td><code>waterFlow</code> — מתוך הבנטל</td>
+                <td>ביצוע <code>CLIP</code> לשכבה עם גבול הסקר</td>
+            </tr>
+            <tr>
+                <td>שכבת קווים טופוגרפיים</td>
+                <td><code>TOPO_LINE</code> — מתוך הבנטל</td>
+                <td>ביצוע <code>CLIP</code> לשכבה עם גבול הסקר</td>
+            </tr>
+            <tr>
+                <td>שכבת קווי צמחייה</td>
+                <td><code>VEG_LINE</code> — מתוך הבנטל</td>
+                <td>ביצוע <code>CLIP</code> לשכבה עם גבול הסקר</td>
+            </tr>
+        </table>
+    </div>
+
+    <h3>עיבוד לשכבת התכסית המוכללת</h3>
+    <p>
+        עבור החישוב יש לוודא שהשדות שלהלן נמצאים בשכבת התכסית המוכללת וכתובים <strong>בדיוק באותו השם</strong>.
+        אם השדות חסרים ניתן להשלים אותם מתוך
+        <a href="https://desheoli.maps.arcgis.com/home/item.html?id=f2cbce5354024da28f93788c53b182d2#overview" target="_blank">שכבת חלקות חקלאיות של משרד החקלאות</a>.
+        במידת הצורך, יש לבצע עיבוד לשכבה כך שבשדות להלן יוזן מידע תקין, בהתאם לסט ההגדרות:
+    </p>
+
+    <div class="table-wrap">
+        <table class="manual-table">
+            <tr>
+                <th>שדה</th>
+                <th>הסבר</th>
+                <th>עיבוד</th>
+            </tr>
+            <tr>
+                <td><code>CoverType</code></td>
+                <td>חקלאות שטח פתוח/כיסוי חלקי</td>
+                <td>אם חסרים ערכים, יש להזין ערכים מסוג טקסט מתוך ההגדרות הללו: "שטח פתוח", "גידולי שדה", "מטעים", "גדש", "בתי רשת", "מנהרות", "רשת", "כיסוי רשת"</td>
+            </tr>
+            <tr>
+                <td><code>WaterType</code></td>
+                <td>חקלאות בעל/שלחין</td>
+                <td>אם חסרים ערכים, יש להזין ערכים מסוג טקסט מתוך ההגדרות הללו: "מליחים", "שלחין", "קולחין", "שפירים", "מעורב", "בעל", "ללא השקיה", "גשם"</td>
+            </tr>
+            <tr>
+                <td><code>LandCov</code></td>
+                <td>כיסוי קרקע</td>
+                <td>אם חסרים ערכים, יש להזין ערכים מסוג טקסט מתוך ההגדרות הללו: "פתוח", "מוגן", "שטח פתוח שאינו חקלאי פעיל", "חקלאי", "חקלאי פעיל"</td>
+            </tr>
+        </table>
+    </div>
+
+    <h2>מדריך הרצה</h2>
+
+    <h3>שלב א': הרצת הכלי הראשון — חישוב מדדי המשנה</h3>
+    <ol>
+        <li>פתח את חלונית ה-<strong>Toolbox</strong> ב-<strong>ArcGIS</strong> והפעל את הכלי.</li>
+        <li>בצע בחירה (<strong>SELECT</strong>) של החלקות החקלאיות בשכבת התכסית המוכללת.</li>
+        <li>בשדה הקלט הראשון, הכנס את התכסית המוכללת תוך וידוא שמסומנת הבחירה של החלקות החקלאיות.</li>
+        <li>הזן את השכבות החיצוניות הרלוונטיות ואת שדות הציון המתאימים להן.</li>
+        <li>
+            <strong>דגש חשוב:</strong> עבור כל מדד משנה שברצונך לחשב, יש להגדיר שם שדה ייעודי. במידה ולא תגדיר שם שדה
+            לציון מסוים — המדד לא יחושב, והניקוד המקסימאלי של הסקאלה יתחלק באופן דינמי רק בין שאר השדות הפעילים
+            באותה קטגוריה!
+        </li>
+    </ol>
+
+    <h3>שלב ב': הרצת הכלי השני — חישוב דרגת הערכיות האקולוגית</h3>
+    <p>לאחר סיום ריצת הכלי הראשון וקבלת שדה הציון הכולל (<strong>SUM</strong>):</p>
+    <ol>
+        <li>הפעל את כלי העזר השני בחלונית הכלים.</li>
+        <li>הזן את שכבת החלקות ואת שדה הסיכום המחושב (<strong>SUM</strong>).</li>
+        <li>הכלי יבצע חלוקה לטווחים שווי-גודל של כלל הציונים ויסווג את החלקות ל-3 דרגות ערכיות סופיות (נמוכה, בינונית וגבוהה).</li>
+    </ol>
+
+    <h2>סיכום כלל הפרמטרים והתראות רלוונטיות</h2>
+    <div class="table-wrap">
+        <table class="manual-table">
+            <tr>
+                <th>סקאלה מרחבית</th>
+                <th>מדד משנה</th>
+                <th>קלט</th>
+                <th>התראות רלוונטיות</th>
+                <th>הערות</th>
+            </tr>
+            <tr>
+                <td rowspan="2">ארצית (30)</td>
+                <td>מסדרון אקולוגי</td>
+                <td>שכבת מסדרונות אקולוגיים</td>
+                <td>במקרה של הגדרת סוג מסדרון לא מזוהה — תצא התראה</td>
+                <td>חיפוש טקסטואלי של הגדרות בשדה שנקרא <code>TypeRTGyosh</code></td>
+            </tr>
+            <tr>
+                <td>יחידה אקולוגית</td>
+                <td>שכבת יחידות אקולוגיות <strong>*מעובדת</strong></td>
+                <td>במקרה של חלקה שחופפת במספר יחידות אקולוגיות — הציון יינתן בהתאם לחפיפה הגדולה יותר ותוצג התראה מתאימה בשדה הערות.</td>
+                <td>החישוב לא יעבוד בלי השכבה המעובדת מהמאמר הכוללת את השדות: <code>Protection_Percentage</code>, <code>Area_Dunam</code></td>
+            </tr>
+            <tr>
+                <td rowspan="3">יחידת הנוף החקלאית (45)</td>
+                <td>פשט הצפה</td>
+                <td>שכבת פשט הצפה</td>
+                <td>במקרה של חפיפה של 20% ומטה תצא התראה למשתמש.</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>השטח הטבעי מתוך יחידת הנוף</td>
+                <td>חטיבות נוף המשרד להגנת הסביבה / יחידות נוף של עמית</td>
+                <td>במקרה של חלקה שחופפת במספר יחידות נוף — הציון יינתן בהתאם לחפיפה הגדולה יותר ותוצג התראה מתאימה בשדה הערות.</td>
+                <td>ההגדרה של שטח טבעי או חקלאי נלקחת מתוך התכסית המוכללת מהשדה <code>LandCov</code></td>
+            </tr>
+            <tr>
+                <td>רצף שטחים פתוחים</td>
+                <td>שכבה מעובדת פוליגונלית*</td>
+                <td></td>
+                <td>החישוב מתבצע על סמך הערכים בשדה <code>gridcode</code></td>
+            </tr>
+            <tr>
+                <td rowspan="3">מאפיינים טבעיים בחלקה ובשוליה (15)</td>
+                <td>גלי אבנים/טרסות</td>
+                <td><code>TOPO_LINE</code>*</td>
+                <td></td>
+                <td>תחת השדה <code>FTYPE</code> — סוג קו שבר טופוגרפי מצוין אם מדובר בטרסה או אחר.</td>
+            </tr>
+            <tr>
+                <td>מאפיינים טבעיים בחלקה ובשוליה</td>
+                <td><code>VEG_LINE</code>*</td>
+                <td></td>
+                <td>תחת השדה <code>FTYPE</code> — סוג קו צמחייה.</td>
+            </tr>
+            <tr>
+                <td>גדות ערוצי ניקוז</td>
+                <td>שכבת ערוצי ניקוז*</td>
+                <td></td>
+                <td>תחת השדה <code>FCODE</code></td>
+            </tr>
+            <tr>
+                <td rowspan="2">מאפיינים חקלאיים בחלקה (10)</td>
+                <td>חקלאות שטח פתוח/כיסוי חלקי</td>
+                <td>פנימי — מתוך התכסית המוכללת</td>
+                <td>במקרה של הגדרת סוג כיסוי לא מזוהה — תצא התראה</td>
+                <td>תחת השדה <code>CoverType</code></td>
+            </tr>
+            <tr>
+                <td>חקלאות בעל/שלחין</td>
+                <td>פנימי — מתוך התכסית המוכללת</td>
+                <td>במקרה של הגדרת צורת השקייה לא מזוהה — תצא התראה</td>
+                <td>תחת השדה <code>WaterType</code></td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="note-info">
+        💡 * שכבה הדורשת עיבוד מקדים. משיקולי זמן ריצה, יש לייצא רק את היישויות הרלוונטיות לגבול הסקר. מומלץ להשתמש
+        בכלי <code>Clip</code> כדי לבצע חיתוך פשוט בין השכבה המקורית לגבול הסקר.
+    </div>
+
+    <h2>התראות נפוצות בשדה WARNING</h2>
+    <p>להלן פירוט ההתראות המרכזיות והוראות לטיפול בהן:</p>
+
+    <div class="warning-item">
+        <div class="code-line">CorridorScoreType: eco_type '...' Assigned 0 score.</div>
+        <p><strong>משמעות:</strong> בשכבת המסדרונות האקולוגיים נמצא פוליגון המכיל ערך לא מוכר בשדה ה-Type (שאינו תואם להגדרות הליבה, המעבר או המסדרון). החלקה קיבלה ציון 0 במדד זה.</p>
+        <p><strong>פעולה נדרשת:</strong> יש לפתוח את טבלת הישויות של שכבת המסדרונות, לאתר את הערך החריג בשדה <code>Type</code>, לתקן אותו לאחד מהערכים המותרים ולהריץ את הכלי שנית.</p>
+    </div>
+
+    <div class="warning-item">
+        <div class="code-line">FloodplainScore: max overlap = X%</div>
+        <p><strong>משמעות:</strong> החלקה החקלאית חופפת מרחבית את שכבת פשט ההצפה, אך אחוז החפיפה נמוך מרמת הסף הנדרשת בכלי (פחות מ-20% חפיפה).</p>
+        <p><strong>פעולה נדרשת:</strong> התראה לידיעה בלבד. הכלי מתחשב בחפיפה אך הציון הותאם בהתאם לסף המינימלי.</p>
+    </div>
+
+    <div class="warning-item">
+        <div class="code-line">NaturalArea_score: parcel overlaps X units...</div>
+        <p><strong>משמעות:</strong> החלקה ממוקמת באזור גבול וחוצה שתיים או יותר חטיבות נוף במקביל.</p>
+        <p><strong>פעולה נדרשת:</strong> התראה לידיעה בלבד. הכלי פתר את הכפילות באופן אוטומטי וקבע את הפקטור והציון על פי חטיבת הנוף בעלת שטח החפיפה המקסימלי לחלקה זו.</p>
+    </div>
+
+    <div class="warning-item">
+        <div class="code-line">EcologicalUnits_score: parcel overlaps X ecological units...</div>
+        <p><strong>משמעות:</strong> החלקה חקלאית חוצה מספר יחידות אקולוגיות במקביל.</p>
+        <p><strong>פעולה נדרשת:</strong> התראה לידיעה בלבד. הציון נקבע על בסיס היחידה האקולוגית בעלת שטח החפיפה הגדול ביותר עם החלקה.</p>
+    </div>
+
+    <div class="warning-item">
+        <div class="code-line">WaterType_score: Unrecognized WaterType '...' Assigned 0 score.</div>
+        <p><strong>משמעות:</strong> בשכבת החלקות החקלאיות (התכסית המוכללת) הוזן בשדה <code>WaterType</code> ערך טקסטואלי שאינו מוכר על ידי הכלי, ולכן החלקה קיבלה 0 נקודות על רכיב ההשקיה.</p>
+        <p><strong>פעולה נדרשת:</strong> יש לתקן את הערך בשכבת המקור לאחד מהערכים המוגדרים במדריך (כמו 'בעל', 'ללא השקיה', 'שלחין' וכדומה) ולהריץ את הכלי מחדש.</p>
+    </div>
+
+</div>
+
+</body>
+</html>
