@@ -430,8 +430,3 @@ class Accept(Enum):
     QUESTION_MARK = "?"
     BEFORE_TESTING = "לפני בדיקה"
 
-class Source(Enum):
-    FIELD_SUGGESTION = "הצעה מהשטח"
-    PRE_MAPPING_SUGGESTION_APPROVED = "הצעה מקדם מיפוי – התקבלה"
-    PRE_MAPPING_SUGGESTION_REJECTED = "הצעה מקדם מיפוי – נדחתה"
-    NEW_SUGGESTION = "הצעה חדשה"
