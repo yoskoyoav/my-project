@@ -25,6 +25,9 @@
             --warning-border: #f59e0b;
             --warning-bg: #fffbeb;
             --warning-text: #b45309;
+            --info-border: #3b82f6;
+            --info-bg: #eff6ff;
+            --info-text: #1e40af;
         }
 
         body {
@@ -37,7 +40,7 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: 850px;
             margin: 0 auto;
             background: var(--card-bg);
             padding: 2.5rem;
@@ -67,8 +70,8 @@
         .section-title {
             color: var(--primary-color);
             font-size: 1.3rem;
-            margin-top: 0;
-            margin-bottom: 1.2rem;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -113,7 +116,7 @@
         code {
             background-color: #f1f5f9;
             color: #0f172a;
-            padding: 0.25rem 0.5rem;
+            padding: 0.2rem 0.4rem;
             border-radius: 4px;
             font-family: Monaco, Consolas, "Courier New", monospace;
             font-size: 0.88em;
@@ -128,13 +131,30 @@
             word-break: break-all;
         }
 
-        /* Collapsible Section Details Styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.92rem;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 0.8rem;
+            text-align: right;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: var(--primary-color);
+        }
+
         details {
             background-color: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 0.75rem 1rem;
-            margin-top: 2rem;
+            margin-top: 1.5rem;
             transition: all 0.2s ease;
         }
 
@@ -172,10 +192,6 @@
             transform: rotate(-90deg);
         }
 
-        summary:hover {
-            color: var(--accent-color);
-        }
-
         .badge {
             background-color: #dbeafe;
             color: #1e40af;
@@ -192,15 +208,6 @@
             border-top: 1px solid var(--border-color);
         }
 
-        .changelog-content ul {
-            padding-right: 1.2rem;
-            margin-bottom: 1rem;
-        }
-
-        .changelog-content li {
-            margin-bottom: 0.5rem;
-        }
-
         .alert-box {
             background-color: var(--warning-bg);
             border-right: 4px solid var(--warning-border);
@@ -210,19 +217,19 @@
             margin-top: 1rem;
         }
 
-        .alert-box strong {
-            display: block;
-            margin-bottom: 0.3rem;
+        .info-box {
+            background-color: var(--info-bg);
+            border-right: 4px solid var(--info-border);
+            color: var(--info-text);
+            padding: 1rem 1.2rem;
+            border-radius: 6px;
+            margin-top: 1rem;
         }
 
-        /* Printable / Standard fallback */
         @media print {
             details {
                 border: none;
                 padding: 0;
-            }
-            details[open] summary, summary {
-                display: block;
             }
             summary::after {
                 display: none;
@@ -236,49 +243,88 @@
     
     <div class="main-header">
         <h1>מדריך למשתמש - Deshe_LayerMaker</h1>
-        <p class="subtitle">הנחיות ועדכוני גרסה אחרונים</p>
+        <p class="subtitle">כלי אוטומטי ליצירת שכבות והגדרת דומיינים ב-ArcGIS Pro</p>
     </div>
 
     <!-- Section 1: Instructions -->
     <section>
         <h2 class="section-title">הנחיות להפעלת הכלי</h2>
         <ol class="steps-list">
-            <li><strong>חילוץ התיקייה:</strong> חלץ את התיקייה המכילה את הכלי למחשב.</li>
-            <li><strong>פתיחת פרויקט:</strong> פתח פרויקט ב-ArcGIS Pro (פרויקט קיים או חדש).</li>
+            <li><strong>חילוץ התיקייה:</strong> חלץ את התיקייה המכילה את הכלי למחשב המקומי.</li>
+            <li><strong>פתיחת פרויקט:</strong> פתח פרויקט ב-ArcGIS Pro (וודא שקיימת מפה פעילה בפרויקט).</li>
             <li>
-                <strong>ייבוא הטולבוקס:</strong> ייבא דרך חלון ה-Catalog את הקובץ:
+                <strong>ייבוא הטולבוקס:</strong> דרך חלון ה-Catalog, לחץ מקש ימני על <code>Toolboxes</code> -> <code>Add Toolbox</code> ונווט לקובץ:
                 <code class="path-block">DesheTools\execution_scripts\DesheTools.atbx</code>
-                <small>*(לפני ההרצה – יש לוודא שבפרויקט הנוכחי קיימת מפה פעילה)*</small>
             </li>
-            <li><strong>פתיחת הסקריפט:</strong> פתח את הסקריפט <code>create new layer</code>.</li>
-            <li><strong>בחירת השכבה:</strong> בחר את השכבה אותה תרצה להוסיף והרץ את הסקריפט.</li>
+            <li><strong>פתיחת הכלי:</strong> הפעל את הכלי <code>create new layer</code>.</li>
             <li>
-                <strong>סיום ההרצה:</strong>
+                <strong>הזנת פרמטרים:</strong>
                 <ul>
-                    <li>השכבה תיווצר ב-GDB שמוגדר כברירת מחדל (Default GDB).</li>
-                    <li>השכבה תתווסף אוטומטית למפה הפעילה בפרויקט.</li>
-                    <li><strong>חשוב:</strong> יש לשנות את שמות השכבות לשם ייחודי עבור הפרויקט (למשל: <code>סקר מישורי הלס_2026</code>).</li>
+                    <li><strong>Layer Name:</strong> בחר את שם השכבה מתוך רשימת השכבות המוגדרות.</li>
+                    <li><strong>Domain Mode:</strong> בחר את אופן הטיפול בדומיינים קיימים (ברירת מחדל: <code>skip</code>).</li>
+                </ul>
+            </li>
+            <li>
+                <strong>סיום ההרצה ותוצרים:</strong>
+                <ul>
+                    <li>השכבה תיווצר ב-Geodatabase של ברירת המחדל (<code>Default GDB</code>) ברשת <strong>Israel TM Israel</strong> (<code>EPSG:2039</code>).</li>
+                    <li>השכבה תתווסף אוטומטית למפה הפעילה.</li>
                 </ul>
             </li>
         </ol>
     </section>
 
-    <!-- Section 2: Collapsible Release Notes -->
-    <details>
+    <!-- Section 2: Domain Modes -->
+    <section>
+        <h2 class="section-title">מצבי עדכון דומיינים (Domain Mode)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>מצב (Mode)</th>
+                    <th>תיאור התנהגות המערכת</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>skip</code> (ברירת מחדל)</td>
+                    <td>אם הדומיין כבר קיים ב-GDB, הכלי מדלג עליו ולא מבצע שינויים.</td>
+                </tr>
+                <tr>
+                    <td><code>update</code></td>
+                    <td>מעדכן דומיינים קיימים במידה ונוספו ערכים חדשים בקובץ הקונפיגורציה.</td>
+                </tr>
+                <tr>
+                    <td><code>report</code></td>
+                    <td>מציע דוח שינויים בלבד בחלון ה-Messages (חדש, הוסר, שונה) ללא ביצוע שינויים בפועל.</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Section 3: Configuration Info -->
+    <div class="info-box">
+        <strong>⚙️ ניהול הגדרות ושדות (Configuration)</strong>
+        הגדרות השכבות, סוגי הגיאומטריה, השדות והדומיינים נשלטות באופן דינמי דרך קבצי ה-Excel הממוקמים בתיקייה:
+        <code class="path-block">DesheTools\configuration\fields.xlsx</code>
+        <code class="path-block">DesheTools\configuration\domains.xlsx</code>
+    </div>
+
+    <!-- Section 4: Collapsible Release Notes -->
+    <details open>
         <summary>
             <span>שינויים שבוצעו בגרסה האחרונה <span class="badge">220225</span></span>
         </summary>
         <div class="changelog-content">
             <ul>
-                <li>הוספת ערכים לדומיין <code>zoology_survey</code>.</li>
-                <li>עדכון שם השדה: <strong>"מספר גלאי/מצלמה/גלאי/נקודת דיגום"</strong>.</li>
-                <li>הוספת שדה חדש <code>Completed</code> בשכבות הערות קויות/נקודתיות סוקר והזנת דומיין (כן/לא).</li>
+                <li>הוספת ערכים חדשים לדומיין <code>zoology_survey</code>.</li>
+                <li>עדכון שם השדה ל: <strong>"מספר גלאי/מצלמה/גלאי/נקודת דיגום"</strong>.</li>
+                <li>הוספת שדה חדש <code>Completed</code> בשכבות הערות קויות/נקודתיות סוקר עם דומיין כן/לא (<code>Binaries</code>).</li>
+                <li>תמיכה במנגנון עדכון דומיינים מבוסס אקסל כולל מצבי <code>update</code> ו-<code>report</code>.</li>
             </ul>
 
             <div class="alert-box">
-                <strong>⚠️ שימו לב - דגש לפני הרצה!</strong>
-                אם עובדים על GDB עם דומיינים קיימים (מהרצה קודמת של הכלי), יש להסיר את הדומיין <code>zoology_survey</code> מהשכבה בה הוא מוזן ומתוך ה-GDB. רק לאחר מכן יש להריץ.<br>
-                <em>לחילופין: ניתן לפתוח GDB חדש ללא דומיינים ולהריץ.</em>
+                <strong>⚠️ טיפ לעבודה עם GDB קיים:</strong>
+                כאשר עובדים מול GDB המכיל דומיינים מהרצה קודמת, מומלץ להגדיר את הפרמטר <code>Domain Mode</code> כ-<code>update</code> כדי לקבל את ערכי הדומיין המעודכנים ביותר.
             </div>
         </div>
     </details>
