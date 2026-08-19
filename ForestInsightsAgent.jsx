@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { Upload, Sparkles, FileJson, TrendingUp, Copy, Check, AlertTriangle } from "lucide-react";
+import { Upload, Sparkles, FileJson, TrendingUp, Copy, Check, AlertTriangle, BarChart3 } from "lucide-react";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+
+const GREENS = ['#16a34a', '#059669', '#65a30d', '#0d9488', '#84cc16', '#15803d', '#047857'];
+const TWO_TONE = ['#16a34a', '#a3e635'];
 
 const FOREST_NAMES = {
   4240:"אופקים",4201:"אורים",4371:"אילת",4105:"איתן",4106:"אמציה",4110:"ארז",3101:"אשדוד",4255:"אשל הנשיא",4301:"אשלים",3110:"באר טוביה",4335:"באר שבע",4273:"בארי",4233:"בית קמה",4203:"גבולות",4115:"גברעם",3205:"גוברין",4204:"גילת",4102:"דבירה",4129:"דודאים",4183:"דורות",4302:"דימונה",4321:"המכתש הגדול",4361:"המכתש הקטן",4185:"חולות אשקלון",4206:"חולות חלוצה",4327:"חולות עגור",4350:"חירן",4103:"חלץ",4139:"חסה",4369:"חצבה",4334:"חצרון",4212:"חצרים",4216:"חשיף",4121:"יד מרדכי",4370:"יטבתה",4322:"ירוחם",4306:"יתיר",4304:"יתיר צפון",4124:"כוכב",4213:"כיסופים",4315:"כסייפה",4123:"כרמון",4174:"כרמים",4128:"להב",4120:"לכיש",4119:"מאחז",4228:"מגן",4194:"מורן",4363:"מישור פארן",4307:"מיתר",4217:"מעון",4113:"מערב הר חברון",3202:"מראשה",4309:"משאבי שדה",4332:"משוש",4220:"משמר הנגב",4323:"נבטים",4209:"נחל אסף",4221:"נחל הבשור",4232:"נחל חנון",4211:"נחל עשן",4333:"ניצנה",4235:"נתיבות",4215:"סיירת שקד",4329:"עבדת",4338:"עומר",4314:"ערד",4324:"ערוער",4298:"פארק באר שבע",4143:"פלוגות",4205:"פתחת שלום",4272:"צוחר",4118:"קדמה",4114:"קוממיות",4116:"קרית גת",4316:"רביבים",4266:"רהט",4117:"רוחמה",4308:"רמון",4319:"רמת בקע",4325:"רמת חובב",4328:"רמת מטרד",4210:"רנן",4330:"שבטה",4150:"שדרות",4202:"שובל",4231:"שובלים",4208:"שוקדה",4154:"שחריה",4234:"תלמי בילו",4109:"תלמים",4365:"תמנע",
@@ -40,6 +44,7 @@ export default function ForestInsightsAgent() {
   const [jsonData, setJsonData] = useState(null);
   const [fileName, setFileName] = useState('');
   const [forestName, setForestName] = useState('');
+  const [fullAnalysis, setFullAnalysis] = useState(null);
   const [prompt, setPrompt] = useState('');
   const [insight, setInsight] = useState('');
   const [loading, setLoading] = useState(false);
@@ -54,6 +59,7 @@ export default function ForestInsightsAgent() {
     setFileName(file.name);
     setError('');
     setForestName('');
+    setFullAnalysis(null);
     setReportResults([]);
     setInsight('');
     const reader = new FileReader();
@@ -77,6 +83,8 @@ export default function ForestInsightsAgent() {
           }
         }
         setForestName(name);
+        const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה density צפיפות מבנה health בריאות התנוונות פולשים';
+        setFullAnalysis(analyzeLocally(features, allFieldsTrigger));
       } catch {
         setError('שגיאה בקריאת הקובץ. אנא ודא שזה קובץ JSON תקין.');
         setJsonData(null);
@@ -387,6 +395,155 @@ export default function ForestInsightsAgent() {
     setTimeout(() => setCopiedIdx(null), 2000);
   };
 
+  const ChartCard = ({ title, children }) => (
+    <div className="bg-gray-50 rounded-lg p-4">
+      <p className="text-sm font-semibold text-gray-700 mb-3">{title}</p>
+      {children}
+    </div>
+  );
+
+  const ChartsSection = () => {
+    if (!fullAnalysis) return null;
+    const veg = fullAnalysis.vegFormDistribution || [];
+    const species = fullAnalysis.speciesDistribution || [];
+    const layers = fullAnalysis.primary_ForestLayer || [];
+    const density = fullAnalysis.densityDistribution || [];
+    const composition = fullAnalysis.compositionDistribution || [];
+    const h = fullAnalysis.healthMetrics;
+
+    const primaryMap = {};
+    (fullAnalysis.primary_VegForm || []).forEach(p => { primaryMap[p.vegForm] = p.percentage; });
+    const compareData = (fullAnalysis.ForestVegForm || []).slice(0, 6).map(f => ({
+      name: f.vegForm, 'כלל היער': f.percentage, 'שכבה ראשית': primaryMap[f.vegForm] ?? 0
+    }));
+
+    const healthData = h ? [
+      { name: 'התנוונות', value: h.degPct },
+      { name: 'עצים פגועים', value: h.harmPct }
+    ] : [];
+
+    const hasAny = veg.length || species.length || layers.length || density.length || composition.length || h;
+    if (!hasAny) return null;
+
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><BarChart3 className="w-5 h-5" />שלב 2: תצוגה גרפית של הנתונים</h2>
+        <p className="text-gray-500 text-sm mb-4">אחוזי השטח לפי השדות המשמשים את תבניות התובנה, לפני ניסוח</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {veg.length > 0 && (
+            <ChartCard title="תצורת צומח (% משטח היער)">
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart margin={{ top: 10, bottom: 10 }}>
+                  <Pie
+                    data={veg} dataKey="percentage" nameKey="form"
+                    cx="50%" cy="42%" outerRadius={75}
+                    label={({ percentage }) => `${percentage}%`}
+                    labelLine={{ strokeWidth: 1 }}
+                  >
+                    {veg.map((_, i) => <Cell key={i} fill={GREENS[i % GREENS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {species.length > 0 && (
+            <ChartCard title="הרכב מינים דומיננטיים (%)">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={species} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" unit="%" />
+                  <YAxis type="category" dataKey="species" width={90} tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Bar dataKey="percentage" fill="#16a34a" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {compareData.length > 0 && (
+            <ChartCard title="תצורת צומח: כלל היער מול שכבה ראשית (%)">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={compareData} margin={{ bottom: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" interval={0} />
+                  <YAxis unit="%" />
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Legend />
+                  <Bar dataKey="כלל היער" fill={TWO_TONE[0]} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="שכבה ראשית" fill={TWO_TONE[1]} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {layers.length > 0 && (
+            <ChartCard title="קומות גובה (% משטח היער)">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={layers}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="layer" tick={{ fontSize: 11 }} />
+                  <YAxis unit="%" />
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Bar dataKey="percentage" fill="#0d9488" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {density.length > 0 && (
+            <ChartCard title="צפיפות היער (% משטח היער)">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={density}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="density" tick={{ fontSize: 11 }} />
+                  <YAxis unit="%" />
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Bar dataKey="percentage" fill="#65a30d" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {composition.length > 0 && (
+            <ChartCard title="מבנה גילאים (% משטח היער)">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={composition}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="composition" tick={{ fontSize: 11 }} />
+                  <YAxis unit="%" />
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Bar dataKey="percentage" fill="#84cc16" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {h && (
+            <ChartCard title="בריאות היער (% משטח מושפע)">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={healthData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis unit="%" />
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Bar dataKey="value" fill="#b45309" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              {h.invasiveFociCount > 0 && (
+                <p className="text-xs text-gray-500 mt-2">מינים פולשים דווחו ב-{h.invasiveFociCount} עומדים</p>
+              )}
+            </ChartCard>
+          )}
+
+        </div>
+      </div>
+    );
+  };
+
   const FileInfoCard = () => jsonData && (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
       <div className={`mb-4 border rounded-lg px-4 py-3 flex items-center gap-2 ${forestName ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
@@ -431,6 +588,7 @@ export default function ForestInsightsAgent() {
         {jsonData && (
           <>
             <FileInfoCard />
+            <ChartsSection />
 
             {/* Tabs */}
             <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
@@ -448,7 +606,7 @@ export default function ForestInsightsAgent() {
               {/* Single Insight Tab */}
               {activeTab === 'single' && (
                 <div className="p-6">
-                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5" />שלב 2: מה תרצה לדעת?</h2>
+                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5" />שלב 3: מה תרצה לדעת?</h2>
                   <textarea
                     className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition text-right resize-none"
                     rows="4" placeholder="כתוב שאלה או בחר תבנית מוכנה מטה..."
