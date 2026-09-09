@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Upload, Sparkles, FileJson, TrendingUp, Copy, Check, AlertTriangle, BarChart3 } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Upload, Sparkles, FileJson, TrendingUp, Copy, Check, AlertTriangle, BarChart3, Library, Trash2, RefreshCw, Save } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ResponsiveContainer } from "recharts";
 
 // A wider, more distinguishable hue set for multi-category charts (pie, CoverType bars) —
@@ -57,44 +57,133 @@ export default function ForestInsightsAgent() {
   const [error, setError] = useState('');
   const [copiedIdx, setCopiedIdx] = useState(null);
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setFileName(file.name);
+  // Shared file library (window.storage) — visible to everyone who opens this artifact.
+  const [libraryFiles, setLibraryFiles] = useState([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState('');
+  const [loadingKey, setLoadingKey] = useState(null);
+  const [savingToLibrary, setSavingToLibrary] = useState(false);
+  const [savedNotice, setSavedNotice] = useState('');
+  const [deleteConfirmKey, setDeleteConfirmKey] = useState(null);
+
+  const LIB_PREFIX = 'file:';
+  const sanitizeKey = (s) => (s || 'יער')
+    .replace(/\.json$/i, '')
+    .replace(/['"\\/]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 150) || 'יער';
+  const keyToDisplayName = (key) => key.slice(LIB_PREFIX.length).replace(/_/g, ' ');
+
+  const refreshLibrary = async () => {
+    setLibraryLoading(true);
+    setLibraryError('');
+    try {
+      const res = await window.storage.list(LIB_PREFIX, true);
+      const keys = res?.keys || [];
+      setLibraryFiles(keys.map(k => ({ key: k, displayName: keyToDisplayName(k) })).sort((a, b) => a.displayName.localeCompare(b.displayName, 'he')));
+    } catch (err) {
+      setLibraryError('שגיאה בטעינת רשימת הקבצים השמורים.');
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  useEffect(() => { refreshLibrary(); }, []);
+
+  // Shared by both "upload a file" and "load from the shared library" — parses
+  // once, then runs the same forest-name lookup and full analysis either way.
+  const applyJsonData = (data, displayName) => {
+    setFileName(displayName);
     setError('');
     setForestName('');
     setFullAnalysis(null);
     setInsight('');
     setInsightNote(null);
+    setSavedNotice('');
+    setJsonData(data);
+    const features = data.features || [];
+    let name = '';
+    for (let i = 0; i < features.length; i++) {
+      const val = features[i]?.attributes?.FOR_NAM;
+      if (val !== null && val !== undefined && val !== '') { name = val; break; }
+    }
+    if (!name) {
+      for (let i = 0; i < features.length; i++) {
+        const no = features[i]?.attributes?.FOR_NO;
+        if (no !== null && no !== undefined && no !== '') {
+          name = FOREST_NAMES[parseInt(no)] || '';
+          break;
+        }
+      }
+    }
+    setForestName(name);
+    const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה density צפיפות מבנה health בריאות התנוונות פולשים';
+    setFullAnalysis(analyzeLocally(features, allFieldsTrigger));
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        setJsonData(data);
-        const features = data.features || [];
-        let name = '';
-        for (let i = 0; i < features.length; i++) {
-          const val = features[i]?.attributes?.FOR_NAM;
-          if (val !== null && val !== undefined && val !== '') { name = val; break; }
-        }
-        if (!name) {
-          for (let i = 0; i < features.length; i++) {
-            const no = features[i]?.attributes?.FOR_NO;
-            if (no !== null && no !== undefined && no !== '') {
-              name = FOREST_NAMES[parseInt(no)] || '';
-              break;
-            }
-          }
-        }
-        setForestName(name);
-        const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה density צפיפות מבנה health בריאות התנוונות פולשים';
-        setFullAnalysis(analyzeLocally(features, allFieldsTrigger));
+        applyJsonData(data, file.name);
       } catch {
         setError('שגיאה בקריאת הקובץ. אנא ודא שזה קובץ JSON תקין.');
         setJsonData(null);
       }
     };
     reader.readAsText(file);
+  };
+
+  const loadFromLibrary = async (item) => {
+    setLoadingKey(item.key);
+    setLibraryError('');
+    try {
+      const res = await window.storage.get(item.key, true);
+      const data = JSON.parse(res.value);
+      applyJsonData(data, item.displayName + '.json');
+    } catch (err) {
+      setLibraryError(`שגיאה בטעינת "${item.displayName}" מהספרייה.`);
+    } finally {
+      setLoadingKey(null);
+    }
+  };
+
+  const saveToLibrary = async () => {
+    if (!jsonData) return;
+    setSavingToLibrary(true);
+    setLibraryError('');
+    setSavedNotice('');
+    try {
+      const serialized = JSON.stringify(jsonData);
+      if (serialized.length > 4.5 * 1024 * 1024) {
+        setLibraryError('הקובץ גדול מדי לשמירה בספרייה (מעל כ-4.5MB).');
+        return;
+      }
+      const baseName = forestName || fileName.replace(/\.json$/i, '') || 'יער';
+      const key = LIB_PREFIX + sanitizeKey(baseName);
+      const result = await window.storage.set(key, serialized, true);
+      if (!result) throw new Error('empty result');
+      setSavedNotice(`נשמר בספרייה המשותפת כ"${keyToDisplayName(key)}"`);
+      refreshLibrary();
+    } catch (err) {
+      setLibraryError('שגיאה בשמירה לספרייה המשותפת.');
+    } finally {
+      setSavingToLibrary(false);
+    }
+  };
+
+  const deleteFromLibrary = async (item) => {
+    setLibraryError('');
+    try {
+      await window.storage.delete(item.key, true);
+      setDeleteConfirmKey(null);
+      refreshLibrary();
+    } catch (err) {
+      setLibraryError(`שגיאה במחיקת "${item.displayName}".`);
+    }
   };
 
   // Exact match, not substring: the previous substring check on 'אחר' was also
@@ -669,14 +758,25 @@ export default function ForestInsightsAgent() {
 
   const FileInfoCard = () => jsonData && (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-      <div className={`mb-4 border rounded-lg px-4 py-3 flex items-center gap-2 ${forestName ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-        <span className="text-lg">{forestName ? '🌲' : '❓'}</span>
-        <span className={`font-bold text-lg ${forestName ? 'text-green-900' : 'text-gray-400'}`}>{forestName || 'שם יער לא נמצא'}</span>
+      <div className={`mb-4 border rounded-lg px-4 py-3 flex items-center justify-between gap-2 ${forestName ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{forestName ? '🌲' : '❓'}</span>
+          <span className={`font-bold text-lg ${forestName ? 'text-green-900' : 'text-gray-400'}`}>{forestName || 'שם יער לא נמצא'}</span>
+        </div>
+        <button onClick={saveToLibrary} disabled={savingToLibrary}
+          className="flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-900 border border-green-300 hover:bg-green-100 rounded-full px-3 py-1.5 transition disabled:opacity-50 shrink-0">
+          {savingToLibrary
+            ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700"></div>
+            : <Save className="w-3.5 h-3.5" />}
+          שמור לספרייה המשותפת
+        </button>
       </div>
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div className="bg-gray-50 p-3 rounded"><p className="text-gray-600">מספר עומדים</p><p className="text-2xl font-bold text-green-600">{jsonData.features?.length || 0}</p></div>
         <div className="bg-gray-50 p-3 rounded"><p className="text-gray-600">סך שטח (דונם)</p><p className="text-2xl font-bold text-green-600">{(jsonData.features?.reduce((s, f) => s + (f.attributes?.Dunam || 0), 0) || 0).toLocaleString('he-IL', { maximumFractionDigits: 0 })}</p></div>
       </div>
+      {savedNotice && <p className="text-xs text-green-700 mt-3">✓ {savedNotice}</p>}
+      {libraryError && <p className="text-xs text-red-600 mt-3">⚠ {libraryError}</p>}
     </div>
   );
 
@@ -691,8 +791,8 @@ export default function ForestInsightsAgent() {
             <h1 className="text-3xl font-bold text-gray-800">סוכן תובנות יערניות</h1>
           </div>
           <div className="flex items-center gap-3 mb-1">
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">v2.0</span>
-            <span className="text-xs text-gray-400">עודכן לאחרונה: 08.09.2026</span>
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">v2.1</span>
+            <span className="text-xs text-gray-400">עודכן לאחרונה: 09.09.2026</span>
           </div>
           <p className="text-gray-600">העלה קובץ JSON, שאל שאלה, וקבל תובנה מנוסחת</p>
         </div>
@@ -706,6 +806,52 @@ export default function ForestInsightsAgent() {
             {fileName && <p className="text-xs text-green-600 font-medium mt-1">✓ {fileName}</p>}
             <input type="file" className="hidden" accept=".json" onChange={handleFileUpload} />
           </label>
+
+          {/* Shared file library */}
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Library className="w-4 h-4" />או בחר מהספרייה המשותפת</p>
+              <button onClick={refreshLibrary} disabled={libraryLoading} title="רענן"
+                className="text-gray-400 hover:text-green-600 transition disabled:opacity-50">
+                <RefreshCw className={`w-4 h-4 ${libraryLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {libraryLoading && libraryFiles.length === 0 && (
+              <p className="text-sm text-gray-400">טוען רשימת קבצים...</p>
+            )}
+            {!libraryLoading && libraryFiles.length === 0 && !libraryError && (
+              <p className="text-sm text-gray-400">אין עדיין קבצים בספרייה המשותפת. העלה קובץ ושמור אותו כאן לשימוש חוזר.</p>
+            )}
+            {libraryFiles.length > 0 && (
+              <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                {libraryFiles.map(item => (
+                  <div key={item.key} className="flex items-center justify-between bg-gray-50 hover:bg-green-50 rounded-lg px-3 py-2 transition">
+                    <button onClick={() => loadFromLibrary(item)} disabled={loadingKey === item.key}
+                      className="flex items-center gap-2 text-sm text-gray-700 hover:text-green-800 font-medium flex-1 text-right disabled:opacity-50">
+                      {loadingKey === item.key
+                        ? <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-green-600 shrink-0"></div>
+                        : <FileJson className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                      {item.displayName}
+                    </button>
+                    {deleteConfirmKey === item.key ? (
+                      <span className="flex items-center gap-2 text-xs shrink-0">
+                        <button onClick={() => deleteFromLibrary(item)} className="text-red-600 font-semibold hover:text-red-800">מחק</button>
+                        <button onClick={() => setDeleteConfirmKey(null)} className="text-gray-400 hover:text-gray-600">בטל</button>
+                      </span>
+                    ) : (
+                      <button onClick={() => setDeleteConfirmKey(item.key)} title="מחק מהספרייה המשותפת"
+                        className="text-gray-300 hover:text-red-500 transition shrink-0 ms-2">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {libraryError && <p className="text-xs text-red-600 mt-2">⚠ {libraryError}</p>}
+            <p className="text-xs text-gray-400 mt-3">קבצים בספרייה המשותפת גלויים וניתנים למחיקה על ידי כל מי שפותח את הארטיפקט הזה.</p>
+          </div>
         </div>
 
         {error && !jsonData && (
