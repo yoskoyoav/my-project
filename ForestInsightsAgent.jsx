@@ -1,9 +1,14 @@
-import { useState } from "react";
-import { Upload, Sparkles, FileJson, TrendingUp, Copy, Check, AlertTriangle, BarChart3 } from "lucide-react";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { useState, useMemo, useEffect } from "react";
+import { Upload, Sparkles, FileJson, TrendingUp, Copy, Check, AlertTriangle, BarChart3, Library, Trash2, RefreshCw, Save } from "lucide-react";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ResponsiveContainer } from "recharts";
 
-const GREENS = ['#16a34a', '#059669', '#65a30d', '#0d9488', '#84cc16', '#15803d', '#047857'];
-const TWO_TONE = ['#16a34a', '#a3e635'];
+// A wider, more distinguishable hue set for multi-category charts (pie, CoverType bars) —
+// an all-green palette reads fine for two or three slices but gets hard to tell
+// apart past that, especially in a pie.
+const PALETTE = ['#16a34a', '#0ea5e9', '#d97706', '#dc2626', '#7c3aed', '#0d9488', '#a16207', '#db2777'];
+const TWO_TONE = ['#16a34a', '#f59e0b'];
+const TOOLTIP_STYLE = { borderRadius: 10, border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12, padding: '8px 12px' };
+const AXIS_TICK = { fontSize: 11, fill: '#4b5563' };
 
 const FOREST_NAMES = {
   4240:"אופקים",4201:"אורים",4371:"אילת",4105:"איתן",4106:"אמציה",4110:"ארז",3101:"אשדוד",4255:"אשל הנשיא",4301:"אשלים",3110:"באר טוביה",4335:"באר שבע",4273:"בארי",4233:"בית קמה",4203:"גבולות",4115:"גברעם",3205:"גוברין",4204:"גילת",4102:"דבירה",4129:"דודאים",4183:"דורות",4302:"דימונה",4321:"המכתש הגדול",4361:"המכתש הקטן",4185:"חולות אשקלון",4206:"חולות חלוצה",4327:"חולות עגור",4350:"חירן",4103:"חלץ",4139:"חסה",4369:"חצבה",4334:"חצרון",4212:"חצרים",4216:"חשיף",4121:"יד מרדכי",4370:"יטבתה",4322:"ירוחם",4306:"יתיר",4304:"יתיר צפון",4124:"כוכב",4213:"כיסופים",4315:"כסייפה",4123:"כרמון",4174:"כרמים",4128:"להב",4120:"לכיש",4119:"מאחז",4228:"מגן",4194:"מורן",4363:"מישור פארן",4307:"מיתר",4217:"מעון",4113:"מערב הר חברון",3202:"מראשה",4309:"משאבי שדה",4332:"משוש",4220:"משמר הנגב",4323:"נבטים",4209:"נחל אסף",4221:"נחל הבשור",4232:"נחל חנון",4211:"נחל עשן",4333:"ניצנה",4235:"נתיבות",4215:"סיירת שקד",4329:"עבדת",4338:"עומר",4314:"ערד",4324:"ערוער",4298:"פארק באר שבע",4143:"פלוגות",4205:"פתחת שלום",4272:"צוחר",4118:"קדמה",4114:"קוממיות",4116:"קרית גת",4316:"רביבים",4266:"רהט",4117:"רוחמה",4308:"רמון",4319:"רמת בקע",4325:"רמת חובב",4328:"רמת מטרד",4210:"רנן",4330:"שבטה",4150:"שדרות",4202:"שובל",4231:"שובלים",4208:"שוקדה",4154:"שחריה",4234:"תלמי בילו",4109:"תלמים",4365:"תמנע",
@@ -40,51 +45,90 @@ const templates = [
 ];
 
 export default function ForestInsightsAgent() {
-  const [activeTab, setActiveTab] = useState('single');
+  const [view, setView] = useState('report'); // 'report' (default/main) or 'advanced' (free-text side tab)
   const [jsonData, setJsonData] = useState(null);
   const [fileName, setFileName] = useState('');
   const [forestName, setForestName] = useState('');
   const [fullAnalysis, setFullAnalysis] = useState(null);
   const [prompt, setPrompt] = useState('');
   const [insight, setInsight] = useState('');
+  const [insightNote, setInsightNote] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [reportResults, setReportResults] = useState([]);
-  const [reportLoading, setReportLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState(null);
+
+  // Shared file library (window.storage) — visible to everyone who opens this artifact.
+  const [libraryFiles, setLibraryFiles] = useState([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState('');
+  const [loadingKey, setLoadingKey] = useState(null);
+  const [savingToLibrary, setSavingToLibrary] = useState(false);
+  const [savedNotice, setSavedNotice] = useState('');
+  const [deleteConfirmKey, setDeleteConfirmKey] = useState(null);
+
+  const LIB_PREFIX = 'file:';
+  const sanitizeKey = (s) => (s || 'יער')
+    .replace(/\.json$/i, '')
+    .replace(/['"\\/]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 150) || 'יער';
+  const keyToDisplayName = (key) => key.slice(LIB_PREFIX.length).replace(/_/g, ' ');
+
+  const refreshLibrary = async () => {
+    setLibraryLoading(true);
+    setLibraryError('');
+    try {
+      const res = await window.storage.list(LIB_PREFIX, true);
+      const keys = res?.keys || [];
+      setLibraryFiles(keys.map(k => ({ key: k, displayName: keyToDisplayName(k) })).sort((a, b) => a.displayName.localeCompare(b.displayName, 'he')));
+    } catch (err) {
+      setLibraryError('שגיאה בטעינת רשימת הקבצים השמורים.');
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  useEffect(() => { refreshLibrary(); }, []);
+
+  // Shared by both "upload a file" and "load from the shared library" — parses
+  // once, then runs the same forest-name lookup and full analysis either way.
+  const applyJsonData = (data, displayName) => {
+    setFileName(displayName);
+    setError('');
+    setForestName('');
+    setFullAnalysis(null);
+    setInsight('');
+    setInsightNote(null);
+    setSavedNotice('');
+    setJsonData(data);
+    const features = data.features || [];
+    let name = '';
+    for (let i = 0; i < features.length; i++) {
+      const val = features[i]?.attributes?.FOR_NAM;
+      if (val !== null && val !== undefined && val !== '') { name = val; break; }
+    }
+    if (!name) {
+      for (let i = 0; i < features.length; i++) {
+        const no = features[i]?.attributes?.FOR_NO;
+        if (no !== null && no !== undefined && no !== '') {
+          name = FOREST_NAMES[parseInt(no)] || '';
+          break;
+        }
+      }
+    }
+    setForestName(name);
+    const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה density צפיפות מבנה health בריאות התנוונות פולשים';
+    setFullAnalysis(analyzeLocally(features, allFieldsTrigger));
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setFileName(file.name);
-    setError('');
-    setForestName('');
-    setFullAnalysis(null);
-    setReportResults([]);
-    setInsight('');
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        setJsonData(data);
-        const features = data.features || [];
-        let name = '';
-        for (let i = 0; i < features.length; i++) {
-          const val = features[i]?.attributes?.FOR_NAM;
-          if (val !== null && val !== undefined && val !== '') { name = val; break; }
-        }
-        if (!name) {
-          for (let i = 0; i < features.length; i++) {
-            const no = features[i]?.attributes?.FOR_NO;
-            if (no !== null && no !== undefined && no !== '') {
-              name = FOREST_NAMES[parseInt(no)] || '';
-              break;
-            }
-          }
-        }
-        setForestName(name);
-        const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה density צפיפות מבנה health בריאות התנוונות פולשים';
-        setFullAnalysis(analyzeLocally(features, allFieldsTrigger));
+        applyJsonData(data, file.name);
       } catch {
         setError('שגיאה בקריאת הקובץ. אנא ודא שזה קובץ JSON תקין.');
         setJsonData(null);
@@ -93,7 +137,65 @@ export default function ForestInsightsAgent() {
     reader.readAsText(file);
   };
 
-  const isVague = (term) => ['שונות','אחרים','לא מוגדר','לא רלוונטי','אחר'].some(v => term?.includes(v));
+  const loadFromLibrary = async (item) => {
+    setLoadingKey(item.key);
+    setLibraryError('');
+    try {
+      const res = await window.storage.get(item.key, true);
+      const data = JSON.parse(res.value);
+      applyJsonData(data, item.displayName + '.json');
+    } catch (err) {
+      setLibraryError(`שגיאה בטעינת "${item.displayName}" מהספרייה.`);
+    } finally {
+      setLoadingKey(null);
+    }
+  };
+
+  const saveToLibrary = async () => {
+    if (!jsonData) return;
+    setSavingToLibrary(true);
+    setLibraryError('');
+    setSavedNotice('');
+    try {
+      const serialized = JSON.stringify(jsonData);
+      if (serialized.length > 4.5 * 1024 * 1024) {
+        setLibraryError('הקובץ גדול מדי לשמירה בספרייה (מעל כ-4.5MB).');
+        return;
+      }
+      const baseName = forestName || fileName.replace(/\.json$/i, '') || 'יער';
+      const key = LIB_PREFIX + sanitizeKey(baseName);
+      const result = await window.storage.set(key, serialized, true);
+      if (!result) throw new Error('empty result');
+      setSavedNotice(`נשמר בספרייה המשותפת כ"${keyToDisplayName(key)}"`);
+      refreshLibrary();
+    } catch (err) {
+      setLibraryError('שגיאה בשמירה לספרייה המשותפת.');
+    } finally {
+      setSavingToLibrary(false);
+    }
+  };
+
+  const deleteFromLibrary = async (item) => {
+    setLibraryError('');
+    try {
+      await window.storage.delete(item.key, true);
+      setDeleteConfirmKey(null);
+      refreshLibrary();
+    } catch (err) {
+      setLibraryError(`שגיאה במחיקת "${item.displayName}".`);
+    }
+  };
+
+  // Exact match, not substring: the previous substring check on 'אחר' was also
+  // matching inside legitimate category names like 'מעורב אחר' ("mixed - other",
+  // a real ~4-9% category) and silently dropping them from every distribution.
+  const isVague = (term) => ['שונות', 'אחרים', 'לא מוגדר', 'לא רלוונטי', 'אחר'].includes((term || '').trim());
+  // ForestVegForm values carry a "יער " ("forest ") prefix (e.g. "יער מעורב"),
+  // while primary_VegForm values for the same category don't (e.g. "מעורב").
+  // Comparisons between the two fields must match on the normalized name or
+  // every category except the ones that happen to be identical (like "חורש")
+  // silently fails to join and shows as zero.
+  const normalizeVegForm = (s) => (s || '').replace(/^יער\s+/, '').trim();
 
   // ---------------------------------------------------------------------
   // Deterministic computation layer: every number, sort order and field
@@ -106,22 +208,83 @@ export default function ForestInsightsAgent() {
     const totalArea = features.reduce((s, f) => s + (f.attributes?.Dunam || 0), 0);
 
     if (lowerPrompt.includes('covertype') || lowerPrompt.includes('הרכב מינים') || lowerPrompt.includes('תצורת צומח')) {
-      const vegDist = {}, specDist = {};
+      const vegDist = {}, coverDist = {}, speciesByCover = {};
+      let horeshArea = 0, rachaviArea = 0;
+      // Shrubland, low-forest variants, herbaceous, and batha — everything that
+      // used to get grouped into "קומת קרקע" — are not "forest vegetation form /
+      // species composition" in the forestry sense. Excluded entirely here,
+      // including from the % denominator, not just relabeled into a bucket.
+      //
+      // Two things matter here:
+      // 1. Spelling varies between fields for the same word — ForestVegForm
+      //    writes "שיחיה" (one י) while CoverType writes "שיחייה" (two י) for
+      //    the exact same stands. A plain .includes('שיחייה') misses the
+      //    one-י spelling entirely, so this uses a regex that accepts either.
+      // 2. The two fields don't always agree on a stand: some stands have a
+      //    normal ForestVegForm (e.g. "יער רחבי-עלים") but CoverType is still
+      //    "שיחייה". Checking only ForestVegForm lets those leak into the
+      //    species list, so both fields are checked and either one is enough
+      //    to exclude the stand.
+      const groundLayerPattern = /שיחיי?ה|עשבוני|נמוך|בתה/;
+      const isGroundLayer = (v) => !!v && groundLayerPattern.test(v);
+      let vegTotalArea = 0;
+      let excludedArea = 0;
+      // "NAME - WEIGHT" pairs, e.g. "אשחר רחב-עלים - 4, אלון מצוי - 6" (weights sum to 10 per stand).
+      // Greedy (.*) correctly keeps hyphenated species names intact and only
+      // peels off the trailing " - <number>" weight.
+      const weightPattern = /^(.*)\s-\s(\d+(?:\.\d+)?)$/;
       features.forEach(f => {
         let vf = f.attributes?.ForestVegForm || 'לא מוגדר';
-        if (vf.includes('חורש') || vf.includes('רחבי')) vf = 'יער רחבי עלים';
-        else if (vf.includes('שיחייה') || vf.includes('בתה') || vf.includes('עשבוני')) vf = 'קומת קרקע';
-        else if (vf.includes('מחטני')) vf = 'יער מחטני';
-        vegDist[vf] = (vegDist[vf] || 0) + (f.attributes?.Dunam || 0);
+        const ctRaw = f.attributes?.CoverType || 'לא מוגדר';
+        if (isGroundLayer(vf) || isGroundLayer(ctRaw)) { excludedArea += f.attributes?.Dunam || 0; return; }
+        const dunam = f.attributes?.Dunam || 0;
+        vegTotalArea += dunam;
+        // Track "חורש" and "רחבי" separately for now — they only get merged
+        // into one label below, and only if both actually occur in this forest.
+        if (vf.includes('חורש')) { horeshArea += dunam; }
+        else if (vf.includes('רחבי')) { rachaviArea += dunam; }
+        else {
+          if (vf.includes('מחטני')) vf = 'יער מחטני';
+          vegDist[vf] = (vegDist[vf] || 0) + dunam;
+        }
+
         const ct = f.attributes?.CoverType || 'לא מוגדר';
-        const st = f.attributes?.stringCoverType || '';
         const area = f.attributes?.Dunam || 0;
-        if (ct.includes('מעורב') && st) {
-          st.split(',').map(s => s.trim().split('-')[0].trim()).forEach(sp => { if (sp) specDist[sp] = (specDist[sp] || 0) + area / st.split(',').length; });
-        } else { specDist[ct] = (specDist[ct] || 0) + area; }
+        coverDist[ct] = (coverDist[ct] || 0) + area;
+
+        const st = f.attributes?.stringCoverType || '';
+        if (st) {
+          const bucket = speciesByCover[ct] || (speciesByCover[ct] = {});
+          st.split(',').forEach(part => {
+            const m = weightPattern.exec(part.trim());
+            if (!m) return;
+            const name = m[1].trim();
+            const weight = parseFloat(m[2]);
+            if (!name || isNaN(weight)) return;
+            bucket[name] = (bucket[name] || 0) + area * (weight / 10);
+          });
+        }
       });
-      res.vegFormDistribution = Object.entries(vegDist).filter(([f]) => !isVague(f)).map(([form, area]) => ({ form, area, percentage: Math.round((area / totalArea) * 100) })).sort((a, b) => b.area - a.area);
-      res.speciesDistribution = Object.entries(specDist).filter(([s]) => !isVague(s)).map(([species, area]) => ({ species, area, percentage: Math.round((area / totalArea) * 100) })).sort((a, b) => b.area - a.area).slice(0, 5);
+      // Only combine the label when both sources are actually present in this forest.
+      if (horeshArea > 0 && rachaviArea > 0) vegDist['יער רחבי עלים / חורש'] = horeshArea + rachaviArea;
+      else if (horeshArea > 0) vegDist['חורש'] = horeshArea;
+      else if (rachaviArea > 0) vegDist['יער רחבי עלים'] = rachaviArea;
+      // % here is of vegTotalArea (post-exclusion), not the forest's full area —
+      // שיחייה/יער נמוך/עשבוני are removed from the denominator, not just hidden.
+      res.vegFormDistribution = Object.entries(vegDist).filter(([f]) => !isVague(f)).map(([form, area]) => ({ form, area, percentage: vegTotalArea > 0 ? Math.round((area / vegTotalArea) * 100) : 0 })).sort((a, b) => b.area - a.area);
+      // Primary metric: raw CoverType grouped by area — this is what matches the reference/ground-truth output.
+      res.coverTypeDistribution = Object.entries(coverDist).filter(([c]) => !isVague(c)).map(([covertype, area]) => ({ covertype, area, percentage: vegTotalArea > 0 ? Math.round((area / vegTotalArea) * 100) : 0 })).sort((a, b) => b.area - a.area).slice(0, 6);
+      // Secondary, informational only: the species that make up each CoverType category, correctly weighted.
+      res.speciesDetail = {};
+      res.coverTypeDistribution.forEach(entry => {
+        const bucket = speciesByCover[entry.covertype];
+        if (!bucket) return;
+        const names = Object.entries(bucket).sort((a, b) => b[1] - a[1]).map(([n]) => n);
+        if (names.length > 1 || (names.length === 1 && names[0] !== entry.covertype)) {
+          res.speciesDetail[entry.covertype] = names.slice(0, 2);
+        }
+      });
+      res.groundLayerExcludedArea = excludedArea;
     }
 
     if (lowerPrompt.includes('primary_vegform') || lowerPrompt.includes('שכבה ראשית') || lowerPrompt.includes('השוואה')) {
@@ -163,10 +326,18 @@ export default function ForestInsightsAgent() {
       // (the *coverage* of it) are two different questions. The previous version
       // merged them into a single "topDegSeverity" value, which is the root cause
       // of the field mix-ups you were seeing. They're now tracked separately.
+      //
+      // VitalForest_desc values sometimes already carry a coverage-band suffix
+      // baked in, e.g. "גזעים דקים ביחס לגובה - בינוני (33%-10%)" — the same
+      // "בינוני (33%-10%)" band that DegenerationIndex reports separately. Left
+      // in place, that (a) duplicates the coverage clause in the sentence, and
+      // (b) splits votes for the same underlying type across near-duplicate
+      // strings whenever the coverage differs slightly between stands.
+      const stripCoverageSuffix = (s) => (s || '').replace(/\s-\s.+\(\d+%\s*-\s*\d+%\)\s*$/, '').trim();
       const degTypeDist = {};
       const degCoverageDist = {};
       degStands.forEach(f => {
-        const desc = f.attributes?.VitalForest_desc;
+        const desc = stripCoverageSuffix(f.attributes?.VitalForest_desc);
         const di = f.attributes?.DegenerationIndex;
         const a = f.attributes?.Dunam || 0;
         if (desc && desc !== '' && desc !== 'לא רלוונטי') degTypeDist[desc] = (degTypeDist[desc] || 0) + a;
@@ -221,10 +392,21 @@ export default function ForestInsightsAgent() {
   // functions, so the wording is identical for every forest run through
   // the same template — no LLM phrasing variance between runs.
   // ---------------------------------------------------------------------
-  const relGeneral = (pct) => pct > 70 ? 'רוב' : pct >= 40 ? 'כמחצית' : pct >= 25 ? 'כשליש' : pct >= 10 ? 'כרבע' : 'אחוזים בודדים';
-  const relSpecies = (pct) => pct > 70 ? 'רוב' : pct >= 40 ? 'כמחצית' : pct >= 25 ? 'כשליש' : 'אחוזים בודדים';
-  const relOrExact = (pct) => pct > 70 ? 'רוב' : pct >= 40 ? 'כמחצית' : pct >= 25 ? 'כשליש' : `${pct}%`;
-  const relHealth = (pct) => pct > 70 ? 'רוב' : pct >= 60 ? 'כשני שלישים' : pct >= 40 ? 'כמחצית' : pct >= 25 ? 'כשליש' : pct >= 10 ? 'כרבע' : 'אחוזים בודדים';
+  // Relative language only for values that are genuinely dominant — everything
+  // else gets the exact number, matching what human-written reports actually do.
+  const relPct = (pct) => pct > 70 ? 'רוב' : pct >= 55 ? 'למעלה ממחצית' : pct >= 40 ? 'כמחצית' : `${pct}%`;
+
+  // Fold the forest name into the standard phrases when we have one, instead
+  // of always saying "the forest" generically.
+  const inYaar = (name) => name ? `ביער ${name}` : 'ביער';
+  const miYaar = (name) => name ? `מיער ${name}` : 'מהיער';
+  const beKlalYaar = (name) => name ? `בכלל יער ${name}` : 'בכלל היער';
+
+  // "Dominant" = the top entry is at least `ratio`x the runner-up. A ratio
+  // (not an absolute %) so it fires for 61%/19% and for smaller spreads like
+  // 50%/24% alike, without hard-coding a percentage threshold.
+  const isDominant = (entries, ratio = 2) =>
+    entries.length > 1 && entries[0].percentage >= entries[1].percentage * ratio;
 
   // ---------------------------------------------------------------------
   // Sentence-assembly layer, one function per template. Each function only
@@ -232,71 +414,91 @@ export default function ForestInsightsAgent() {
   // already-computed values above — the LLM is not involved for these five
   // templates at all, so there's nothing left to confuse.
   // ---------------------------------------------------------------------
-  const buildVegInsight = (analysis) => {
+  const buildVegInsight = (analysis, name) => {
     const veg = analysis.vegFormDistribution || [];
-    const species = analysis.speciesDistribution || [];
+    const cover = analysis.coverTypeDistribution || [];
+    const detail = analysis.speciesDetail || {};
     if (!veg.length) return 'לא נמצאו נתוני תצורת צומח מספקים בקובץ.';
     const main = veg[0];
-    const top = species.slice(0, 3).map(s => `${s.species} (${relSpecies(s.percentage)})`);
+    const headline = `תצורת הצומח העיקרית ${inYaar(name)} היא ${main.form}, המהווה ${relPct(main.percentage)} משטח היער.`;
+    if (!cover.length) return headline;
+    if (isDominant(cover)) {
+      const top = cover[0];
+      const names = detail[top.covertype];
+      const note = names && names.length ? `; בעיקר ${names.length === 2 ? `${names[0]} ו${names[1]}` : names[0]}` : '';
+      return `${headline} מין העצים הדומיננטי הוא ${top.covertype} (${relPct(top.percentage)}${note}).`;
+    }
+    const top = cover.slice(0, 3).map(c => {
+      const names = detail[c.covertype];
+      const note = names && names.length ? `; בעיקר ${names.length === 2 ? `${names[0]} ו${names[1]}` : names[0]}` : '';
+      return `${c.covertype} (${relPct(c.percentage)}${note})`;
+    });
     const tail = top.length === 3 ? `${top[0]}, ${top[1]} ו${top[2]}` : top.length === 2 ? `${top[0]} ו${top[1]}` : top[0] || '';
-    return `תצורת הצומח העיקרית ביער היא ${main.form}, המהווה ${relGeneral(main.percentage)} משטח היער.` + (tail ? ` מיני העצים הדומיננטיים הם ${tail}.` : '');
+    return `${headline}` + (tail ? ` מיני העצים הדומיננטיים הם ${tail}.` : '');
   };
 
-  const buildCompareInsight = (analysis) => {
+  // Shown separately from the insight text itself (styled as a caveat, not
+  // folded into the sentence) whenever ground-layer forms were excluded.
+  const GROUND_LAYER_NOTE = 'החישוב אינו כולל תצורות מקומת הקרקע (שיחייה, בתה, עשבוני, יער נמוך).';
+
+  const buildCompareInsight = (analysis, name) => {
     const full = analysis.ForestVegForm || [];
     const primary = analysis.primary_VegForm || [];
     if (!full.length || !primary.length) return 'לא נמצאו נתונים מספקים להשוואה בין כלל היער לשכבה הראשית.';
     const primaryMap = {};
-    primary.forEach(p => { primaryMap[p.vegForm] = p.percentage; });
-    const overview = full.slice(0, 3).map(f => `${f.vegForm} מהווה ${relOrExact(f.percentage)}`).join(', ');
+    primary.forEach(p => { primaryMap[normalizeVegForm(p.vegForm)] = p.percentage; });
+    const overview = full.slice(0, 3).map(f => `${f.vegForm} מהווה ${relPct(f.percentage)}`).join(', ');
     const changes = full
-      .filter(f => primaryMap[f.vegForm] !== undefined)
-      .map(f => ({ name: f.vegForm, fullPct: f.percentage, primaryPct: primaryMap[f.vegForm], delta: primaryMap[f.vegForm] - f.percentage }))
+      .filter(f => primaryMap[normalizeVegForm(f.vegForm)] !== undefined)
+      .map(f => ({ name: f.vegForm, fullPct: f.percentage, primaryPct: primaryMap[normalizeVegForm(f.vegForm)], delta: primaryMap[normalizeVegForm(f.vegForm)] - f.percentage }))
       .filter(c => Math.abs(c.delta) >= 5)
       .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
       .slice(0, 3);
-    const base = `בכלל היער, ${overview} משטח היער.`;
+    const base = `${beKlalYaar(name)}, ${overview} משטח היער.`;
     if (!changes.length) return `${base} בשכבה הראשית לא נמצאו שינויים משמעותיים ביחס לכלל היער.`;
     const changeText = changes.map(c => `${c.name} ${c.delta > 0 ? 'עולה' : 'יורד'} מ-${c.fullPct}% ל-${c.primaryPct}%`).join('; ');
     return `${base} בשכבה הראשית, ${changeText}.`;
   };
 
-  const buildLayerInsight = (analysis) => {
+  const buildLayerInsight = (analysis, name) => {
     const layers = analysis.primary_ForestLayer || [];
     if (!layers.length) return 'לא נמצאו נתוני קומות גובה בקובץ.';
     const [l1, l2, l3] = layers;
-    let s = `מרבית השטח היערני מצוי בקומת הגובה ${l1.layer} (כ-${l1.percentage}% משטח היער)`;
+    if (isDominant(layers)) {
+      return `רוב השטח היערני ${inYaar(name)} מצוי בקומת הגובה ${l1.layer} (כ-${l1.percentage}% משטח היער).`;
+    }
+    let s = `${name ? `${inYaar(name)}, מ` : 'מ'}רבית השטח היערני מצוי בקומת הגובה ${l1.layer} (כ-${l1.percentage}% משטח היער)`;
     if (l2) s += `, ולאחריה קומת הגובה ${l2.layer} (כ-${l2.percentage}%)`;
     if (l3) s += ` וקומת הגובה ${l3.layer} (כ-${l3.percentage}%)`;
     return s + '.';
   };
 
-  const buildDensityInsight = (analysis) => {
+  const buildDensityInsight = (analysis, name) => {
     const density = analysis.densityDistribution || [];
     const comp = analysis.compositionDistribution || [];
     if (!density.length && !comp.length) return 'לא נמצאו נתוני צפיפות ומבנה מספקים בקובץ.';
     const parts = [];
-    if (density.length) parts.push(`הצפיפות הדומיננטית ביער היא ${density[0].density} (${density[0].percentage}% משטח היער)`);
-    if (comp.length) parts.push(`מבנה הגילאים הנפוץ ביותר הוא ${comp[0].composition} (${comp[0].percentage}%)`);
+    if (density.length) parts.push(`הצפיפות הדומיננטית ${inYaar(name)} היא ${density[0].density} (${density[0].percentage}% משטח היער)`);
+    if (comp.length) parts.push(`מבנה שכבות היער הנפוץ ביותר הוא ${comp[0].composition} (${comp[0].percentage}%)`);
     return parts.join('. ') + '.';
   };
 
-  const buildHealthInsight = (analysis) => {
+  const buildHealthInsight = (analysis, name) => {
     const h = analysis.healthMetrics;
     if (!h) return 'לא נמצאו נתוני בריאות יער מספקים בקובץ.';
     const sentences = [];
     if (h.degPct > 0) {
       const typePart = h.topDegType ? `בעיקר ב${h.topDegType} ` : '';
       const covPart = h.topDegCoverage ? `ובכיסוי ${h.topDegCoverage}` : '';
-      sentences.push((`ב${relHealth(h.degPct)} מהיער נצפו התנוונויות ${typePart}${covPart}`).trim() + '.');
+      sentences.push((`ב${relPct(h.degPct)} ${miYaar(name)} נצפו התנוונויות ${typePart}${covPart}`).trim() + '.');
     } else {
-      sentences.push('לא נצפו סימני התנוונות ביער.');
+      sentences.push(`לא נצפו סימני התנוונות ${inYaar(name)}.`);
     }
     if (h.harmPct > 0) {
-      sentences.push(`ב${relHealth(h.harmPct)} מהיער נצפו עצים פגועים בעיקר בכיסוי ${h.topHarmSeverity}.`);
+      sentences.push(`ב${relPct(h.harmPct)} ${miYaar(name)} נצפו עצים פגועים בעיקר בכיסוי ${h.topHarmSeverity}.`);
       if (h.overlapDesc) sentences.push(`האזורים בהם נצפו התנוונויות ובהם נצפו עצים פגועים הם חופפים ${h.overlapDesc}.`);
     } else {
-      sentences.push('לא נצפו עצים פגועים ביער.');
+      sentences.push(`לא נצפו עצים פגועים ${inYaar(name)}.`);
     }
     if (h.invasiveFociCount > 0 && h.topInvasive?.length) {
       const names = h.topInvasive.slice(0, 2).map(i => i.name);
@@ -363,31 +565,31 @@ export default function ForestInsightsAgent() {
       // questions (or an edited template) still go through Claude.
       const matched = templates.find(t => t.rules === prompt);
       const text = (matched && BUILDERS[matched.id])
-        ? BUILDERS[matched.id](analysis)
+        ? BUILDERS[matched.id](analysis, forestName)
         : await callAPI(buildPrompt(analysis, prompt));
       setInsight(text);
+      setInsightNote((matched?.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE : null);
     } catch (err) { setError('שגיאה בניתוח: ' + err.message); }
     finally { setLoading(false); }
   };
 
-  const generateReport = async () => {
-    if (!jsonData) return;
-    setReportLoading(true);
-    setReportResults([]);
+  // The 5 known templates never touch the network anymore (see BUILDERS above),
+  // so the report is just a derived value — computed the moment a file is loaded.
+  const reportResults = useMemo(() => {
+    if (!jsonData) return [];
     const features = jsonData.features || [];
-    const results = [];
-    for (const t of templates) {
+    return templates.map(t => {
       try {
         const analysis = analyzeLocally(features, t.rules);
-        const text = BUILDERS[t.id] ? BUILDERS[t.id](analysis) : await callAPI(buildPrompt(analysis, t.rules));
-        results.push({ name: t.name, text, error: null });
+        const text = BUILDERS[t.id] ? BUILDERS[t.id](analysis, forestName) : '';
+        const note = (t.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE : null;
+        return { id: t.id, name: t.name, text, note, error: null };
       } catch (err) {
-        results.push({ name: t.name, text: null, error: err.message });
+        return { id: t.id, name: t.name, text: null, note: null, error: err.message };
       }
-      setReportResults([...results]);
-    }
-    setReportLoading(false);
-  };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jsonData, forestName]);
 
   const copyText = (text, idx) => {
     navigator.clipboard.writeText(text);
@@ -395,26 +597,23 @@ export default function ForestInsightsAgent() {
     setTimeout(() => setCopiedIdx(null), 2000);
   };
 
-  const ChartCard = ({ title, children }) => (
-    <div className="bg-gray-50 rounded-lg p-4">
-      <p className="text-sm font-semibold text-gray-700 mb-3">{title}</p>
-      {children}
-    </div>
-  );
-
-  const ChartsSection = () => {
+  // Same derived numbers the old full-grid charts section used, now computed
+  // once and handed out per template so each insight row can show the chart
+  // that actually backs its own text, right next to it.
+  const chartData = useMemo(() => {
     if (!fullAnalysis) return null;
     const veg = fullAnalysis.vegFormDistribution || [];
-    const species = fullAnalysis.speciesDistribution || [];
+    const cover = fullAnalysis.coverTypeDistribution || [];
+    const speciesDetail = fullAnalysis.speciesDetail || {};
     const layers = fullAnalysis.primary_ForestLayer || [];
     const density = fullAnalysis.densityDistribution || [];
     const composition = fullAnalysis.compositionDistribution || [];
     const h = fullAnalysis.healthMetrics;
 
     const primaryMap = {};
-    (fullAnalysis.primary_VegForm || []).forEach(p => { primaryMap[p.vegForm] = p.percentage; });
+    (fullAnalysis.primary_VegForm || []).forEach(p => { primaryMap[normalizeVegForm(p.vegForm)] = p.percentage; });
     const compareData = (fullAnalysis.ForestVegForm || []).slice(0, 6).map(f => ({
-      name: f.vegForm, 'כלל היער': f.percentage, 'שכבה ראשית': primaryMap[f.vegForm] ?? 0
+      name: f.vegForm, 'כלל היער': f.percentage, 'שכבה ראשית': primaryMap[normalizeVegForm(f.vegForm)] ?? 0
     }));
 
     const healthData = h ? [
@@ -422,138 +621,162 @@ export default function ForestInsightsAgent() {
       { name: 'עצים פגועים', value: h.harmPct }
     ] : [];
 
-    const hasAny = veg.length || species.length || layers.length || density.length || composition.length || h;
-    if (!hasAny) return null;
+    return { veg, cover, speciesDetail, layers, density, composition, h, healthData, compareData };
+  }, [fullAnalysis]);
 
-    return (
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><BarChart3 className="w-5 h-5" />שלב 2: תצוגה גרפית של הנתונים</h2>
-        <p className="text-gray-500 text-sm mb-4">אחוזי השטח לפי השדות המשמשים את תבניות התובנה, לפני ניסוח</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  const NoChartData = () => <p className="text-sm text-gray-400 flex items-center justify-center h-full py-8">אין נתונים גרפיים זמינים</p>;
 
-          {veg.length > 0 && (
-            <ChartCard title="תצורת צומח (% משטח היער)">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart margin={{ top: 10, bottom: 10 }}>
-                  <Pie
-                    data={veg} dataKey="percentage" nameKey="form"
-                    cx="50%" cy="42%" outerRadius={75}
-                    label={({ percentage }) => `${percentage}%`}
-                    labelLine={{ strokeWidth: 1 }}
-                  >
-                    {veg.map((_, i) => <Cell key={i} fill={GREENS[i % GREENS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={(v) => `${v}%`} />
-                  <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          )}
-
-          {species.length > 0 && (
-            <ChartCard title="הרכב מינים דומיננטיים (%)">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={species} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" unit="%" />
-                  <YAxis type="category" dataKey="species" width={90} tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(v) => `${v}%`} />
-                  <Bar dataKey="percentage" fill="#16a34a" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          )}
-
-          {compareData.length > 0 && (
-            <ChartCard title="תצורת צומח: כלל היער מול שכבה ראשית (%)">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={compareData} margin={{ bottom: 30 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" interval={0} />
-                  <YAxis unit="%" />
-                  <Tooltip formatter={(v) => `${v}%`} />
-                  <Legend />
-                  <Bar dataKey="כלל היער" fill={TWO_TONE[0]} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="שכבה ראשית" fill={TWO_TONE[1]} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          )}
-
-          {layers.length > 0 && (
-            <ChartCard title="קומות גובה (% משטח היער)">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={layers}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="layer" tick={{ fontSize: 11 }} />
-                  <YAxis unit="%" />
-                  <Tooltip formatter={(v) => `${v}%`} />
-                  <Bar dataKey="percentage" fill="#0d9488" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          )}
-
-          {density.length > 0 && (
-            <ChartCard title="צפיפות היער (% משטח היער)">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={density}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="density" tick={{ fontSize: 11 }} />
-                  <YAxis unit="%" />
-                  <Tooltip formatter={(v) => `${v}%`} />
-                  <Bar dataKey="percentage" fill="#65a30d" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          )}
-
-          {composition.length > 0 && (
-            <ChartCard title="מבנה גילאים (% משטח היער)">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={composition}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="composition" tick={{ fontSize: 11 }} />
-                  <YAxis unit="%" />
-                  <Tooltip formatter={(v) => `${v}%`} />
-                  <Bar dataKey="percentage" fill="#84cc16" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          )}
-
-          {h && (
-            <ChartCard title="בריאות היער (% משטח מושפע)">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={healthData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis unit="%" />
-                  <Tooltip formatter={(v) => `${v}%`} />
-                  <Bar dataKey="value" fill="#b45309" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-              {h.invasiveFociCount > 0 && (
-                <p className="text-xs text-gray-500 mt-2">מינים פולשים דווחו ב-{h.invasiveFociCount} עומדים</p>
-              )}
-            </ChartCard>
-          )}
-
-        </div>
+  // One small chart renderer per template id — this is the "left column" of each insight row.
+  const CHART_RENDERERS = {
+    veg: (d) => (!d.veg.length && !d.cover.length) ? <NoChartData /> : (
+      <div className="space-y-4">
+        {d.veg.length > 0 && (
+          <ResponsiveContainer width="100%" height={210}>
+            <PieChart margin={{ top: 4, bottom: 4 }}>
+              <Pie data={d.veg} dataKey="percentage" nameKey="form" cx="50%" cy="42%" outerRadius={58}
+                stroke="#fff" strokeWidth={2}
+                label={({ percentage }) => `${percentage}%`} labelLine={{ strokeWidth: 1 }}>
+                {d.veg.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+              </Pie>
+              <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+              <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
+        {d.cover.length > 0 && (
+          <ResponsiveContainer width="100%" height={190}>
+            <BarChart data={d.cover} layout="vertical" margin={{ left: 10, right: 24 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+              <XAxis type="number" unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+              <YAxis type="category" dataKey="covertype" width={100} tick={{ fontSize: 10.5, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+              <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+              <Bar dataKey="percentage" radius={[0, 6, 6, 0]}>
+                {d.cover.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+                <LabelList dataKey="percentage" position="right" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+        {Object.keys(d.speciesDetail).length > 0 && (
+          <p className="text-xs text-gray-500 leading-relaxed">
+            פירוט מינים (מידע משני):{' '}
+            {Object.entries(d.speciesDetail).map(([cat, names], i) => (
+              <span key={cat}>{i > 0 ? ' · ' : ''}{cat} ({names.join(', ')})</span>
+            ))}
+          </p>
+        )}
       </div>
-    );
+    ),
+    compare: (d) => d.compareData.length === 0 ? <NoChartData /> : (
+      <ResponsiveContainer width="100%" height={230}>
+        <BarChart data={d.compareData} margin={{ bottom: 30, top: 16 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+          <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#374151' }} angle={-20} textAnchor="end" interval={0} axisLine={{ stroke: '#d1d5db' }} />
+          <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+          <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+          <Legend />
+          <Bar dataKey="כלל היער" fill={TWO_TONE[0]} radius={[4, 4, 0, 0]}>
+            <LabelList dataKey="כלל היער" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fontWeight: 600, fill: TWO_TONE[0] }} />
+          </Bar>
+          <Bar dataKey="שכבה ראשית" fill={TWO_TONE[1]} radius={[4, 4, 0, 0]}>
+            <LabelList dataKey="שכבה ראשית" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fontWeight: 600, fill: TWO_TONE[1] }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    ),
+    layer: (d) => d.layers.length === 0 ? <NoChartData /> : (
+      <ResponsiveContainer width="100%" height={230}>
+        <BarChart data={d.layers} margin={{ top: 16 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+          <XAxis dataKey="layer" tick={{ fontSize: 11, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+          <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+          <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+          <Bar dataKey="percentage" radius={[6, 6, 0, 0]}>
+            {d.layers.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+            <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    ),
+    density: (d) => (!d.density.length && !d.composition.length) ? <NoChartData /> : (
+      <div className="space-y-4">
+        {d.density.length > 0 && (
+          <>
+            <p className="text-xs font-semibold text-gray-500">צפיפות</p>
+            <ResponsiveContainer width="100%" height={170}>
+              <BarChart data={d.density} margin={{ top: 14 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="density" tick={{ fontSize: 10.5, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+                <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+                <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+                <Bar dataKey="percentage" fill="#0ea5e9" radius={[6, 6, 0, 0]}>
+                  <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fontWeight: 600, fill: '#0369a1' }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </>
+        )}
+        {d.composition.length > 0 && (
+          <>
+            <p className="text-xs font-semibold text-gray-500">מבנה שכבות היער</p>
+            <ResponsiveContainer width="100%" height={170}>
+              <BarChart data={d.composition} margin={{ top: 14 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="composition" tick={{ fontSize: 10.5, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+                <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+                <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+                <Bar dataKey="percentage" fill="#7c3aed" radius={[6, 6, 0, 0]}>
+                  <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fontWeight: 600, fill: '#6d28d9' }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </>
+        )}
+      </div>
+    ),
+    health: (d) => !d.h ? <NoChartData /> : (
+      <div>
+        <ResponsiveContainer width="100%" height={210}>
+          <BarChart data={d.healthData} margin={{ top: 16 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+            <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+            <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+            <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+            <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+              <Cell fill="#d97706" />
+              <Cell fill="#dc2626" />
+              <LabelList dataKey="value" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        {d.h.invasiveFociCount > 0 && (
+          <p className="text-xs text-gray-500 mt-2">מינים פולשים דווחו ב-{d.h.invasiveFociCount} עומדים</p>
+        )}
+      </div>
+    ),
   };
 
   const FileInfoCard = () => jsonData && (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-      <div className={`mb-4 border rounded-lg px-4 py-3 flex items-center gap-2 ${forestName ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-        <span className="text-lg">{forestName ? '🌲' : '❓'}</span>
-        <span className={`font-bold text-lg ${forestName ? 'text-green-900' : 'text-gray-400'}`}>{forestName || 'שם יער לא נמצא'}</span>
+      <div className={`mb-4 border rounded-lg px-4 py-3 flex items-center justify-between gap-2 ${forestName ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{forestName ? '🌲' : '❓'}</span>
+          <span className={`font-bold text-lg ${forestName ? 'text-green-900' : 'text-gray-400'}`}>{forestName || 'שם יער לא נמצא'}</span>
+        </div>
+        <button onClick={saveToLibrary} disabled={savingToLibrary}
+          className="flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-900 border border-green-300 hover:bg-green-100 rounded-full px-3 py-1.5 transition disabled:opacity-50 shrink-0">
+          {savingToLibrary
+            ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700"></div>
+            : <Save className="w-3.5 h-3.5" />}
+          שמור לספרייה המשותפת
+        </button>
       </div>
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div className="bg-gray-50 p-3 rounded"><p className="text-gray-600">מספר עומדים</p><p className="text-2xl font-bold text-green-600">{jsonData.features?.length || 0}</p></div>
         <div className="bg-gray-50 p-3 rounded"><p className="text-gray-600">סך שטח (דונם)</p><p className="text-2xl font-bold text-green-600">{(jsonData.features?.reduce((s, f) => s + (f.attributes?.Dunam || 0), 0) || 0).toLocaleString('he-IL', { maximumFractionDigits: 0 })}</p></div>
       </div>
+      {savedNotice && <p className="text-xs text-green-700 mt-3">✓ {savedNotice}</p>}
+      {libraryError && <p className="text-xs text-red-600 mt-3">⚠ {libraryError}</p>}
     </div>
   );
 
@@ -568,8 +791,8 @@ export default function ForestInsightsAgent() {
             <h1 className="text-3xl font-bold text-gray-800">סוכן תובנות יערניות</h1>
           </div>
           <div className="flex items-center gap-3 mb-1">
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">v1.2</span>
-            <span className="text-xs text-gray-400">עודכן לאחרונה: 10.08.2026</span>
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">v2.1</span>
+            <span className="text-xs text-gray-400">עודכן לאחרונה: 09.09.2026</span>
           </div>
           <p className="text-gray-600">העלה קובץ JSON, שאל שאלה, וקבל תובנה מנוסחת</p>
         </div>
@@ -583,30 +806,111 @@ export default function ForestInsightsAgent() {
             {fileName && <p className="text-xs text-green-600 font-medium mt-1">✓ {fileName}</p>}
             <input type="file" className="hidden" accept=".json" onChange={handleFileUpload} />
           </label>
+
+          {/* Shared file library */}
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Library className="w-4 h-4" />או בחר מהספרייה המשותפת</p>
+              <button onClick={refreshLibrary} disabled={libraryLoading} title="רענן"
+                className="text-gray-400 hover:text-green-600 transition disabled:opacity-50">
+                <RefreshCw className={`w-4 h-4 ${libraryLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {libraryLoading && libraryFiles.length === 0 && (
+              <p className="text-sm text-gray-400">טוען רשימת קבצים...</p>
+            )}
+            {!libraryLoading && libraryFiles.length === 0 && !libraryError && (
+              <p className="text-sm text-gray-400">אין עדיין קבצים בספרייה המשותפת. העלה קובץ ושמור אותו כאן לשימוש חוזר.</p>
+            )}
+            {libraryFiles.length > 0 && (
+              <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                {libraryFiles.map(item => (
+                  <div key={item.key} className="flex items-center justify-between bg-gray-50 hover:bg-green-50 rounded-lg px-3 py-2 transition">
+                    <button onClick={() => loadFromLibrary(item)} disabled={loadingKey === item.key}
+                      className="flex items-center gap-2 text-sm text-gray-700 hover:text-green-800 font-medium flex-1 text-right disabled:opacity-50">
+                      {loadingKey === item.key
+                        ? <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-green-600 shrink-0"></div>
+                        : <FileJson className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                      {item.displayName}
+                    </button>
+                    {deleteConfirmKey === item.key ? (
+                      <span className="flex items-center gap-2 text-xs shrink-0">
+                        <button onClick={() => deleteFromLibrary(item)} className="text-red-600 font-semibold hover:text-red-800">מחק</button>
+                        <button onClick={() => setDeleteConfirmKey(null)} className="text-gray-400 hover:text-gray-600">בטל</button>
+                      </span>
+                    ) : (
+                      <button onClick={() => setDeleteConfirmKey(item.key)} title="מחק מהספרייה המשותפת"
+                        className="text-gray-300 hover:text-red-500 transition shrink-0 ms-2">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {libraryError && <p className="text-xs text-red-600 mt-2">⚠ {libraryError}</p>}
+            <p className="text-xs text-gray-400 mt-3">קבצים בספרייה המשותפת גלויים וניתנים למחיקה על ידי כל מי שפותח את הארטיפקט הזה.</p>
+          </div>
         </div>
+
+        {error && !jsonData && (
+          <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-4 text-red-700">
+            <p className="font-medium">⚠️ {error}</p>
+          </div>
+        )}
 
         {jsonData && (
           <>
             <FileInfoCard />
-            <ChartsSection />
 
-            {/* Tabs */}
-            <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-              <div className="flex border-b border-gray-200">
-                <button onClick={() => setActiveTab('single')}
-                  className={`flex-1 py-3 text-sm font-semibold transition ${activeTab === 'single' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-                  תובנה בודדת
-                </button>
-                <button onClick={() => setActiveTab('report')}
-                  className={`flex-1 py-3 text-sm font-semibold transition ${activeTab === 'report' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-                  טיוטה לדוח מסכם <span className="text-xs bg-yellow-200 text-yellow-800 font-bold px-1.5 py-0.5 rounded ml-1">BETA</span>
+            {/* Merged step 2+3: insights with their charts, main view */}
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xl font-semibold flex items-center gap-2"><BarChart3 className="w-5 h-5" />שלב 2: תובנות מרכזיות</h2>
+                <button onClick={() => setView(view === 'report' ? 'advanced' : 'report')}
+                  className="text-xs font-semibold text-green-700 hover:text-green-900 border border-green-200 rounded-full px-3 py-1 transition">
+                  {view === 'report' ? 'שאלה חופשית (מתקדם)' : '← חזרה לתובנות'}
                 </button>
               </div>
 
-              {/* Single Insight Tab */}
-              {activeTab === 'single' && (
-                <div className="p-6">
-                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5" />שלב 3: מה תרצה לדעת?</h2>
+              {view === 'report' && (
+                <>
+                  <p className="text-gray-500 text-sm mb-4">כל תובנה מוצגת לצד הגרף שמבסס אותה, לבחינה חזותית מהירה</p>
+                  <div className="space-y-4">
+                    {reportResults.map((r, i) => (
+                      <div key={i} className={`rounded-xl border-2 overflow-hidden ${r.error ? 'border-red-200' : 'border-green-200'}`}>
+                        <div className={`px-4 py-2 flex items-center justify-between ${r.error ? 'bg-red-50' : 'bg-green-50'}`}>
+                          <span className="font-semibold text-sm text-gray-700">{r.name}</span>
+                          {r.text && (
+                            <button onClick={() => copyText(r.text, i)}
+                              className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 transition">
+                              {copiedIdx === i ? <><Check className="w-3.5 h-3.5" />הועתק</> : <><Copy className="w-3.5 h-3.5" />העתק</>}
+                            </button>
+                          )}
+                        </div>
+                        {r.error ? (
+                          <div className="p-4 flex items-center gap-2 text-red-600 text-sm"><AlertTriangle className="w-4 h-4" />{r.error}</div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+                            <div>
+                              <p className="text-gray-800 leading-relaxed">{r.text}</p>
+                              {r.note && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-2 inline-block">⚠ {r.note}</p>}
+                            </div>
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              {chartData && CHART_RENDERERS[r.id] ? CHART_RENDERERS[r.id](chartData) : <NoChartData />}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {view === 'advanced' && (
+                <div className="pt-2">
+                  <p className="text-gray-500 text-sm mb-4">מצב צדדי לשאלה חופשית שלא נענית באחת מהתבניות הקבועות</p>
                   <textarea
                     className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition text-right resize-none"
                     rows="4" placeholder="כתוב שאלה או בחר תבנית מוכנה מטה..."
@@ -631,55 +935,10 @@ export default function ForestInsightsAgent() {
                     <div className="mt-6 bg-gradient-to-br from-green-600 to-emerald-700 rounded-xl p-6 text-white">
                       <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><TrendingUp className="w-5 h-5" />תובנה</h3>
                       <div className="bg-white/10 rounded-lg p-4"><p className="text-lg leading-relaxed">{insight}</p></div>
+                      {insightNote && <p className="text-xs text-amber-100 bg-black/15 rounded-md px-3 py-2 mt-3">⚠ {insightNote}</p>}
                     </div>
                   )}
                   {error && <div className="mt-4 bg-red-50 border-2 border-red-200 rounded-xl p-4 text-red-700"><p className="font-medium">⚠️ {error}</p></div>}
-                </div>
-              )}
-
-              {/* Report Tab */}
-              {activeTab === 'report' && (
-                <div className="p-6">
-                  <h2 className="text-xl font-semibold mb-2 flex items-center gap-2"><TrendingUp className="w-5 h-5" />טיוטה לדוח מסכם</h2>
-                  <p className="text-gray-500 text-sm mb-4">מריץ את כל 5 התבניות ברצף ומציג את התוצאות</p>
-                  <button onClick={generateReport} disabled={reportLoading}
-                    className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition flex items-center justify-center gap-2 mb-6">
-                    {reportLoading ? <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>מעבד תבניות ({reportResults.length}/{templates.length})...</> : <><Sparkles className="w-5 h-5" />צור דוח מסכם</>}
-                  </button>
-
-                  {reportResults.length > 0 && (
-                    <div className="space-y-4">
-                      {reportResults.map((r, i) => (
-                        <div key={i} className={`rounded-xl border-2 overflow-hidden ${r.error ? 'border-red-200' : 'border-green-200'}`}>
-                          <div className={`px-4 py-2 flex items-center justify-between ${r.error ? 'bg-red-50' : 'bg-green-50'}`}>
-                            <span className="font-semibold text-sm text-gray-700">{r.name}</span>
-                            {r.text && (
-                              <button onClick={() => copyText(r.text, i)}
-                                className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 transition">
-                                {copiedIdx === i ? <><Check className="w-3.5 h-3.5" />הועתק</> : <><Copy className="w-3.5 h-3.5" />העתק</>}
-                              </button>
-                            )}
-                          </div>
-                          <div className="p-4">
-                            {r.error
-                              ? <div className="flex items-center gap-2 text-red-600 text-sm"><AlertTriangle className="w-4 h-4" />{r.error}</div>
-                              : <p className="text-gray-800 leading-relaxed">{r.text}</p>
-                            }
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Loading placeholders */}
-                      {reportLoading && reportResults.length < templates.length && (
-                        Array.from({ length: templates.length - reportResults.length }).map((_, i) => (
-                          <div key={`loading-${i}`} className="rounded-xl border-2 border-gray-200 overflow-hidden animate-pulse">
-                            <div className="px-4 py-2 bg-gray-50"><div className="h-4 bg-gray-200 rounded w-1/3"></div></div>
-                            <div className="p-4"><div className="h-3 bg-gray-100 rounded w-full mb-2"></div><div className="h-3 bg-gray-100 rounded w-2/3"></div></div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
