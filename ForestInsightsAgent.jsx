@@ -1,11 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { Upload, Sparkles, FileJson, TrendingUp, Copy, Check, AlertTriangle, BarChart3, Library, Trash2, RefreshCw, Save } from "lucide-react";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ResponsiveContainer } from "recharts";
+import { Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ResponsiveContainer } from "recharts";
 
 // A wider, more distinguishable hue set for multi-category charts (pie, CoverType bars) —
 // an all-green palette reads fine for two or three slices but gets hard to tell
 // apart past that, especially in a pie.
 const PALETTE = ['#16a34a', '#0ea5e9', '#d97706', '#dc2626', '#7c3aed', '#0d9488', '#a16207', '#db2777'];
+// A single blue-family ramp for the species chart, distinct from PALETTE above it,
+// so the two stacked charts don't read as "the same chart twice" at a glance.
+const SPECIES_BLUES = ['#0c4a6e', '#0369a1', '#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc'];
 const TWO_TONE = ['#16a34a', '#f59e0b'];
 const TOOLTIP_STYLE = { borderRadius: 10, border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12, padding: '8px 12px' };
 const AXIS_TICK = { fontSize: 11, fill: '#4b5563' };
@@ -19,13 +22,13 @@ const FOREST_NAMES = {
 const templates = [
   {
     id: 'veg',
-    name: 'תצורת צומח והרכב מינים',
+    name: 'התפלגות הרכב המינים',
     rules: 'נתח את שדות CoverType, ForestVegForm ו-stringCoverType וצור תובנה לפי הפורמט הבא.\nצור את המשפט הבא המורכב מהצלבת נתונים מהשדות הרלוונטים:\n"תצורת הצומח העיקרית ביער היא {תצורה עיקרית}, המהווה {שטח יחסי} משטח היער. מיני העצים הדומיננטיים הם {מין דומיננטי} ({שטח יחסי}), {מין דומיננטי} ({שטח יחסי}) ו{מין דומיננטי} ({שטח יחסי})."\n\nכללי מילוי:\n- {תצורה עיקרית} = תצורת ForestVegForm עם השטח הגדול ביותר. אם קיימות גם חורש וגם רחבי עלים - אחד ל"רחבי עלים/חורש". תצורות שיחייה, בתה ועשבוני - אגד ל"קומת קרקע".\n- {שטח יחסי} הראשון = אחוז התצורה העיקרית מסך שטח היער, בשפה יחסית.\n- {מין דומיננטי} = מינים לפי CoverType מסודרים לפי גודל שטח. אם הרכב מעורב - פרט מינים מ-stringCoverType. אם הרכב המינים הוא מתת היער - שיחייה/עשבוני אל תציין אותם.\n- {שטח יחסי} של כל מין = אחוז השטח שתופס המין מסך היער, בשפה יחסית.\n\nכללי שפה:\n- שטח יחסי בשפה טבעית: "רוב" >70%, "כמחצית" 40-70%, "שליש" 25-40%, "כרבע" 10-25%\n- לקבוצות קטנות (<25%) - השתמש ב"אחוזים בודדים" ולא במספרים מדויקים\n- כתוב רצף משפטים זורם, ללא כותרות או נקודות'
   },
   {
-    id: 'compare',
-    name: 'השוואת תצורות צומח - כלל היער מול שכבה ראשית',
-    rules: 'נתח את שדות ForestVegForm, primary_VegForm ו-Dunam וצור תובנה השוואתית.\n\nחשב התפלגות אחוזית (לפי Dunam) בנפרד עבור:\n1. ForestVegForm - תצורת הצומח של כלל היער\n2. primary_VegForm - תצורת הצומח של השכבה הראשית בלבד\n\nפורמט התובנה:\nתאר תחילה את ההתפלגות של כלל היער, ואז הצג כיצד משתנה ההתפלגות בשכבה הראשית - תוך דגש על תצורות שעלו או ירדו באופן משמעותי.\n\nכללי שפה:\n- השתמש בשפה יחסית לערכים גדולים (כמחצית, שליש) ובאחוזים מדויקים לערכים קטנים (<25%)\n- דגש על שינויים - מה עולה ומה יורד בין שתי ההתפלגויות\n- תאר אך ורק את השינויים המספריים בין שתי ההתפלגויות. אסור בהחלט לכתוב כל ביטוי פרשני או מסיק, כולל: "המעידה כי", "המלמדת כי", "מה שמצביע", "מה שמעיד", "מה שמלמד", "כלומר", "כך ש", "ולכן", "דבר המצביע", "דבר המעיד". המשפטים חייבים להכיל אך ורק מספרים ותיאור השינוי.\n- אין לאחד קטגוריות שאינן שייכות יחד (מחטני ורחבי עלים נשארים נפרדים תמיד)\n- רצף משפטים זורם, ללא כותרות'
+    id: 'vegform',
+    name: 'התפלגות תצורת צומח יערנית',
+    rules: 'נתח את שדה ForestVegForm (הגולמי, ללא מיזוג וללא הדרת קומת קרקע — כל הקטגוריות, 100% משטח היער) וצור תובנה לפי הפורמט הבא.\n\nכללי מילוי:\n- מיין את קטגוריות ForestVegForm לפי שטח (אחוז מתוך כלל שטח היער).\n- הקטגוריה הגדולה ביותר: ציין את שמה ואת אחוזה בשפה יחסית.\n- כל קטגוריה נוספת ששטחה 10% ומעלה: ציין את שמה ואת אחוזה, גם היא בשפה יחסית (אותם כללי עיגול בדיוק כמו הקטגוריה הראשונה).\n- כל הקטגוריות ששטחן מתחת ל-10%: מקובצות יחד במשפט נפרד בסוף, כל השמות (לא רק חלקן), בלי לציין אחוז לכל אחת בנפרד — רק לציין שמדובר ב"אחוזים בודדים".\n\nכללי שפה:\n- שפה יחסית לאחוזים: אותם כללים בדיוק שנקבעו לכל שאר התבניות (relPct המאוחד) — אין כלל נפרד לתבנית הזו.\n- רצף משפטים זורם, ללא כותרות או נקודות'
   },
   {
     id: 'layer',
@@ -33,9 +36,19 @@ const templates = [
     rules: 'נתח את שדות primary_ForestLayer ו-Dunam.\nחשב התפלגות primary_ForestLayer לפי שטח באחוזים יחסיים.\nכתוב משפט מסכם בפורמט:\n"מרבית השטח היערני מצוי בקומת הגובה ה{קומה} (כ-X% משטח היער), ולאחריה קומת הגובה ה{קומה} (כ-X%) וקומת הגובה ה{קומה} (כ-X%)."\nכללים:\n- עגל אחוזים למספרים עגולים\n- סדר לפי גודל שטח'
   },
   {
+    id: 'structure',
+    name: 'מבנה שכבות היער',
+    rules: 'נתח את שדה ForestAgeComposition.\nצור תובנה על התפלגות מבנה שכבות היער (חד-שכבתי/דו-שכבתי/רב-שכבתי) באחוזים.\n\nכללים:\n- התייחס רק לערכים שאינם "לא רלוונטי"\n- עגל אחוזים\n- הדגש את מבנה השכבות הנפוץ ביותר\n- אל תוסיף מסקנה או פרשנות מעבר לנתונים (ללא "מה שמצביע על", "מה שמעיד על", "המעיד על" וכו)\n- תאר רק את הנתונים עצמם בצורה עובדתית\n\nבנוסף, הצלבה בין ForestAgeComposition ל-ForestVegForm: לכל קטגוריית מבנה (מהגדול לקטן) - אם "אין קומת עצים", ציין רק אחוז; אחרת ציין אחוז ואת תצורת/תצורות הצומח הדומיננטיות בתוכה.'
+  },
+  {
+    id: 'compare',
+    name: 'השוואת תצורות צומח - כלל היער מול שכבה ראשית',
+    rules: 'נתח את שדות ForestVegForm, primary_VegForm ו-Dunam וצור תובנה השוואתית.\n\nחשב התפלגות אחוזית (לפי Dunam) בנפרד עבור:\n1. ForestVegForm - תצורת הצומח של כלל היער\n2. primary_VegForm - תצורת הצומח של השכבה הראשית בלבד\n\nפורמט התובנה:\nתאר תחילה את ההתפלגות של כלל היער, ואז הצג כיצד משתנה ההתפלגות בשכבה הראשית - תוך דגש על תצורות שעלו או ירדו באופן משמעותי.\n\nכללי שפה:\n- השתמש בשפה יחסית לערכים גדולים (כמחצית, שליש) ובאחוזים מדויקים לערכים קטנים (<25%)\n- דגש על שינויים - מה עולה ומה יורד בין שתי ההתפלגויות\n- תאר אך ורק את השינויים המספריים בין שתי ההתפלגויות. אסור בהחלט לכתוב כל ביטוי פרשני או מסיק, כולל: "המעידה כי", "המלמדת כי", "מה שמצביע", "מה שמעיד", "מה שמלמד", "כלומר", "כך ש", "ולכן", "דבר המצביע", "דבר המעיד". המשפטים חייבים להכיל אך ורק מספרים ותיאור השינוי.\n- אין לאחד קטגוריות שאינן שייכות יחד (מחטני ורחבי עלים נשארים נפרדים תמיד)\n- רצף משפטים זורם, ללא כותרות'
+  },
+  {
     id: 'density',
-    name: 'צפיפות ומבנה יער',
-    rules: 'נתח את שדות GeneralDensity, ForestAgeComposition, totalCanopyCover.\nצור תובנה על התפלגות הצפיפות ומבנה השכבות באחוזים.\n\nכללים:\n- התייחס רק לערכים שאינם "לא רלוונטי"\n- עגל אחוזים\n- הדגש את המאפיינים הדומיננטיים\n- אל תוסיף מסקנה או פרשנות מעבר לנתונים (ללא "מה שמצביע על", "מה שמעיד על", "המעיד על" וכו)\n- תאר רק את הנתונים עצמם בצורה עובדתית'
+    name: 'צפיפות היער',
+    rules: 'נתח את שדה GeneralDensity.\nצור תובנה על התפלגות הצפיפות באחוזים.\n\nכללים:\n- התייחס רק לערכים שאינם "לא רלוונטי"\n- עגל אחוזים\n- הדגש את הצפיפות הדומיננטית\n- אל תוסיף מסקנה או פרשנות מעבר לנתונים (ללא "מה שמצביע על", "מה שמעיד על", "המעיד על" וכו)\n- תאר רק את הנתונים עצמם בצורה עובדתית'
   },
   {
     id: 'health',
@@ -117,7 +130,7 @@ export default function ForestInsightsAgent() {
       }
     }
     setForestName(name);
-    const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה density צפיפות מבנה health בריאות התנוונות פולשים';
+    const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח forestvegform primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה density צפיפות מבנה health בריאות התנוונות פולשים';
     setFullAnalysis(analyzeLocally(features, allFieldsTrigger));
   };
 
@@ -208,7 +221,7 @@ export default function ForestInsightsAgent() {
     const totalArea = features.reduce((s, f) => s + (f.attributes?.Dunam || 0), 0);
 
     if (lowerPrompt.includes('covertype') || lowerPrompt.includes('הרכב מינים') || lowerPrompt.includes('תצורת צומח')) {
-      const vegDist = {}, coverDist = {}, speciesByCover = {};
+      const vegDist = {}, coverDist = {}, speciesByCover = {}, speciesDist = {};
       let horeshArea = 0, rachaviArea = 0;
       // Shrubland, low-forest variants, herbaceous, and batha — everything that
       // used to get grouped into "קומת קרקע" — are not "forest vegetation form /
@@ -232,19 +245,35 @@ export default function ForestInsightsAgent() {
       // "NAME - WEIGHT" pairs, e.g. "אשחר רחב-עלים - 4, אלון מצוי - 6" (weights sum to 10 per stand).
       // Greedy (.*) correctly keeps hyphenated species names intact and only
       // peels off the trailing " - <number>" weight.
-      const weightPattern = /^(.*)\s-\s(\d+(?:\.\d+)?)$/;
+      // Spacing around the dash is inconsistent in the source data — usually
+      // "name - N" but sometimes "name -N" (no space before the number). \s*
+      // on both sides tolerates either, while still correctly handling
+      // hyphenated species names like "רחב-עלים": greedy (.*) backtracks to
+      // the LAST "- <digits>$" in the string, so an internal hyphen with no
+      // trailing number never gets mistaken for the separator.
+      const weightPattern = /^(.*)\s*-\s*(\d+(?:\.\d+)?)$/;
       features.forEach(f => {
-        let vf = f.attributes?.ForestVegForm || 'לא מוגדר';
+        const vfCheck = f.attributes?.ForestVegForm || 'לא מוגדר';
         const ctRaw = f.attributes?.CoverType || 'לא מוגדר';
-        if (isGroundLayer(vf) || isGroundLayer(ctRaw)) { excludedArea += f.attributes?.Dunam || 0; return; }
+        if (isGroundLayer(vfCheck) || isGroundLayer(ctRaw)) { excludedArea += f.attributes?.Dunam || 0; return; }
         const dunam = f.attributes?.Dunam || 0;
         vegTotalArea += dunam;
-        // Track "חורש" and "רחבי" separately for now — they only get merged
-        // into one label below, and only if both actually occur in this forest.
-        if (vf.includes('חורש')) { horeshArea += dunam; }
-        else if (vf.includes('רחבי')) { rachaviArea += dunam; }
-        else {
-          if (vf.includes('מחטני')) vf = 'יער מחטני';
+        // Source: CoverType, not ForestVegForm. CoverType's own values already
+        // carry compound labels like "מעורב מחטני - חורש" — anything starting
+        // with "מעורב" is an explicitly mixed category and is kept as its own
+        // bucket, checked BEFORE the חורש/רחבי/מחטני tests below. Otherwise a
+        // value like "מעורב מחטני - חורש" would match .includes('חורש') and
+        // get swallowed whole into the pure "חורש" bucket, overstating it.
+        let vf = f.attributes?.CoverType || 'לא מוגדר';
+        if (vf.startsWith('מעורב')) {
+          vegDist[vf] = (vegDist[vf] || 0) + dunam;
+        } else if (vf.includes('חורש')) {
+          horeshArea += dunam;
+        } else if (vf.includes('רחבי')) {
+          rachaviArea += dunam;
+        } else if (vf.includes('מחטני')) {
+          vegDist['יער מחטני'] = (vegDist['יער מחטני'] || 0) + dunam;
+        } else {
           vegDist[vf] = (vegDist[vf] || 0) + dunam;
         }
 
@@ -261,19 +290,33 @@ export default function ForestInsightsAgent() {
             const name = m[1].trim();
             const weight = parseFloat(m[2]);
             if (!name || isNaN(weight)) return;
-            bucket[name] = (bucket[name] || 0) + area * (weight / 10);
+            const contribution = area * (weight / 10);
+            bucket[name] = (bucket[name] || 0) + contribution;
+            speciesDist[name] = (speciesDist[name] || 0) + contribution;
           });
         }
       });
-      // Only combine the label when both sources are actually present in this forest.
+      // Only combine the label when both PURE (non-מעורב) sources are present.
       if (horeshArea > 0 && rachaviArea > 0) vegDist['יער רחבי עלים / חורש'] = horeshArea + rachaviArea;
       else if (horeshArea > 0) vegDist['חורש'] = horeshArea;
       else if (rachaviArea > 0) vegDist['יער רחבי עלים'] = rachaviArea;
       // % here is of vegTotalArea (post-exclusion), not the forest's full area —
       // שיחייה/יער נמוך/עשבוני are removed from the denominator, not just hidden.
+      // NOTE: despite the field name (kept for backward compat with the rest of
+      // the file), this is now grouped from CoverType, not ForestVegForm.
       res.vegFormDistribution = Object.entries(vegDist).filter(([f]) => !isVague(f)).map(([form, area]) => ({ form, area, percentage: vegTotalArea > 0 ? Math.round((area / vegTotalArea) * 100) : 0 })).sort((a, b) => b.area - a.area);
       // Primary metric: raw CoverType grouped by area — this is what matches the reference/ground-truth output.
       res.coverTypeDistribution = Object.entries(coverDist).filter(([c]) => !isVague(c)).map(([covertype, area]) => ({ covertype, area, percentage: vegTotalArea > 0 ? Math.round((area / vegTotalArea) * 100) : 0 })).sort((a, b) => b.area - a.area).slice(0, 6);
+      // The actual tree species (from stringCoverType, correctly weighted, forest-wide —
+      // not scoped to one CoverType category). This is what the "מיני העצים
+      // הדומיננטיים" sentence is built from — CoverType itself is already the
+      // subject of the previous sentence, so it isn't repeated here.
+      const speciesRanked = Object.entries(speciesDist).filter(([s]) => !isVague(s)).map(([species, area]) => ({ species, area, percentage: vegTotalArea > 0 ? Math.round((area / vegTotalArea) * 100) : 0 })).sort((a, b) => b.area - a.area);
+      res.speciesDistribution = speciesRanked.slice(0, 6);
+      // How much of the forest's species weight isn't covered by the top 6 —
+      // shown as its own bar so the chart doesn't look "complete" when it isn't.
+      const otherSpeciesArea = speciesRanked.slice(6).reduce((s, x) => s + x.area, 0);
+      res.speciesOtherPercentage = vegTotalArea > 0 ? Math.round((otherSpeciesArea / vegTotalArea) * 100) : 0;
       // Secondary, informational only: the species that make up each CoverType category, correctly weighted.
       res.speciesDetail = {};
       res.coverTypeDistribution.forEach(entry => {
@@ -285,6 +328,20 @@ export default function ForestInsightsAgent() {
         }
       });
       res.groundLayerExcludedArea = excludedArea;
+    }
+
+    if (lowerPrompt.includes('forestvegform')) {
+      // Raw ForestVegForm, unmerged, nothing excluded — every stand counts,
+      // including ground-layer types (שיחייה/עשבוני/בתה). This is a different
+      // scope than the "הרכב מינים" template above, which deliberately merges
+      // and excludes those — this one is a full accounting of the whole forest.
+      const dist = {};
+      features.forEach(f => {
+        const vf = f.attributes?.ForestVegForm || 'לא מוגדר';
+        const a = f.attributes?.Dunam || 0;
+        dist[vf] = (dist[vf] || 0) + a;
+      });
+      res.vegFormRaw = Object.entries(dist).filter(([v]) => !isVague(v)).map(([form, area]) => ({ form, area, percentage: totalArea > 0 ? Math.round((area / totalArea) * 100) : 0 })).sort((a, b) => b.area - a.area);
     }
 
     if (lowerPrompt.includes('primary_vegform') || lowerPrompt.includes('שכבה ראשית') || lowerPrompt.includes('השוואה')) {
@@ -315,6 +372,39 @@ export default function ForestInsightsAgent() {
       });
       res.densityDistribution = Object.entries(dd).map(([density, area]) => ({ density, area, percentage: Math.round((area / totalArea) * 100) })).sort((a, b) => b.area - a.area);
       res.compositionDistribution = Object.entries(cd).map(([composition, area]) => ({ composition, area, percentage: Math.round((area / totalArea) * 100) })).sort((a, b) => b.area - a.area);
+    }
+
+    if (lowerPrompt.includes('הצלבה')) {
+      // Cross-tab: for each ForestAgeComposition bucket, which ForestVegForm
+      // values dominate inside it. "אין קומת עצים" stands are always ground
+      // cover (בתה/עשבוני/שיחיה) underneath — real data, not noise — so that
+      // one bucket is reported by area only, with no vegform breakdown.
+      const compArea = {};
+      const compVegForm = {};
+      features.forEach(f => {
+        const comp = f.attributes?.ForestAgeComposition;
+        const vf = f.attributes?.ForestVegForm || 'לא מוגדר';
+        const a = f.attributes?.Dunam || 0;
+        if (!comp || comp === 'לא רלוונטי') return;
+        compArea[comp] = (compArea[comp] || 0) + a;
+        if (!comp.includes('אין')) {
+          const bucket = compVegForm[comp] || (compVegForm[comp] = {});
+          bucket[vf] = (bucket[vf] || 0) + a;
+        }
+      });
+      res.structureVegCross = Object.entries(compArea)
+        .filter(([c]) => !isVague(c))
+        .map(([composition, area]) => {
+          const percentage = totalArea > 0 ? Math.round((area / totalArea) * 100) : 0;
+          if (composition.includes('אין')) return { composition, percentage, isNoTree: true, topForms: [] };
+          const vfList = Object.entries(compVegForm[composition] || {})
+            .filter(([v]) => !isVague(v))
+            .map(([form, a2]) => ({ form, percentage: area > 0 ? Math.round((a2 / area) * 100) : 0, area: a2 }))
+            .sort((a2, b2) => b2.area - a2.area);
+          const topForms = vfList.length ? (isDominant(vfList) ? [vfList[0].form] : vfList.slice(0, 2).map(v => v.form)) : [];
+          return { composition, percentage, isNoTree: false, topForms };
+        })
+        .sort((a, b) => b.percentage - a.percentage);
     }
 
     if (lowerPrompt.includes('health') || lowerPrompt.includes('בריאות') || lowerPrompt.includes('התנוונות') || lowerPrompt.includes('פולשים')) {
@@ -394,13 +484,20 @@ export default function ForestInsightsAgent() {
   // ---------------------------------------------------------------------
   // Relative language only for values that are genuinely dominant — everything
   // else gets the exact number, matching what human-written reports actually do.
-  const relPct = (pct) => pct > 70 ? 'רוב' : pct >= 55 ? 'למעלה ממחצית' : pct >= 40 ? 'כמחצית' : `${pct}%`;
+  const relPct = (pct) => pct > 70 ? 'רוב' : pct >= 58 ? 'למעלה ממחצית' : pct >= 38 ? 'כמחצית' : pct >= 28 ? 'כשליש' : pct >= 18 ? 'כרבע' : `${pct}%`;
 
   // Fold the forest name into the standard phrases when we have one, instead
   // of always saying "the forest" generically.
   const inYaar = (name) => name ? `ביער ${name}` : 'ביער';
   const miYaar = (name) => name ? `מיער ${name}` : 'מהיער';
-  const beKlalYaar = (name) => name ? `בכלל יער ${name}` : 'בכלל היער';
+  // Generic "A, B ו-C" joiner for lists of any length (the per-template
+  // 2/3-item joins elsewhere are hand-written because they're capped at 3;
+  // this one is for lists that can run longer, like the ForestVegForm tail).
+  const joinHe = (items) => {
+    if (items.length === 0) return '';
+    if (items.length === 1) return items[0];
+    return `${items.slice(0, -1).join(', ')} ו${items[items.length - 1]}`;
+  };
 
   // "Dominant" = the top entry is at least `ratio`x the runner-up. A ratio
   // (not an absolute %) so it fires for 61%/19% and for smaller spreads like
@@ -416,23 +513,15 @@ export default function ForestInsightsAgent() {
   // ---------------------------------------------------------------------
   const buildVegInsight = (analysis, name) => {
     const veg = analysis.vegFormDistribution || [];
-    const cover = analysis.coverTypeDistribution || [];
-    const detail = analysis.speciesDetail || {};
+    const species = analysis.speciesDistribution || [];
     if (!veg.length) return 'לא נמצאו נתוני תצורת צומח מספקים בקובץ.';
     const main = veg[0];
-    const headline = `תצורת הצומח העיקרית ${inYaar(name)} היא ${main.form}, המהווה ${relPct(main.percentage)} משטח היער.`;
-    if (!cover.length) return headline;
-    if (isDominant(cover)) {
-      const top = cover[0];
-      const names = detail[top.covertype];
-      const note = names && names.length ? `; בעיקר ${names.length === 2 ? `${names[0]} ו${names[1]}` : names[0]}` : '';
-      return `${headline} מין העצים הדומיננטי הוא ${top.covertype} (${relPct(top.percentage)}${note}).`;
+    const headline = `${relPct(main.percentage)} משטח היער מתאפיין בהרכב מינים ${main.form}.`;
+    if (!species.length) return headline;
+    if (isDominant(species)) {
+      return `${headline} מין העצים הדומיננטי הוא ${species[0].species} (${species[0].percentage}%).`;
     }
-    const top = cover.slice(0, 3).map(c => {
-      const names = detail[c.covertype];
-      const note = names && names.length ? `; בעיקר ${names.length === 2 ? `${names[0]} ו${names[1]}` : names[0]}` : '';
-      return `${c.covertype} (${relPct(c.percentage)}${note})`;
-    });
+    const top = species.slice(0, 3).map(s => `${s.species} (${s.percentage}%)`);
     const tail = top.length === 3 ? `${top[0]}, ${top[1]} ו${top[2]}` : top.length === 2 ? `${top[0]} ו${top[1]}` : top[0] || '';
     return `${headline}` + (tail ? ` מיני העצים הדומיננטיים הם ${tail}.` : '');
   };
@@ -441,23 +530,46 @@ export default function ForestInsightsAgent() {
   // folded into the sentence) whenever ground-layer forms were excluded.
   const GROUND_LAYER_NOTE = 'החישוב אינו כולל תצורות מקומת הקרקע (שיחייה, בתה, עשבוני, יער נמוך).';
 
+  const buildVegFormDistInsight = (analysis, name) => {
+    const list = analysis.vegFormRaw || [];
+    if (!list.length) return 'לא נמצאו נתוני תצורת צומח מספקים בקובץ.';
+    const main = list[0];
+    let sentence = `תצורות הצומח העיקריות ${inYaar(name)} הן ${main.form}, המהווה ${relPct(main.percentage)} מהיער.`;
+
+    const rest = list.slice(1);
+    const significant = rest.filter(x => x.percentage >= 10);
+    const tail = rest.filter(x => x.percentage > 0 && x.percentage < 10);
+
+    if (significant.length) {
+      const parts = significant.map(x => `${relPct(x.percentage)} ${x.form}`);
+      sentence += ` בנוסף, ${joinHe(parts)}.`;
+    }
+    if (tail.length) {
+      sentence += ` אחוזים בודדים נוספים מיוצגים על ידי ${joinHe(tail.map(x => `${x.form} (${x.percentage}%)`))}.`;
+    }
+    return sentence;
+  };
+
   const buildCompareInsight = (analysis, name) => {
     const full = analysis.ForestVegForm || [];
     const primary = analysis.primary_VegForm || [];
     if (!full.length || !primary.length) return 'לא נמצאו נתונים מספקים להשוואה בין כלל היער לשכבה הראשית.';
     const primaryMap = {};
     primary.forEach(p => { primaryMap[normalizeVegForm(p.vegForm)] = p.percentage; });
-    const overview = full.slice(0, 3).map(f => `${f.vegForm} מהווה ${relPct(f.percentage)}`).join(', ');
     const changes = full
-      .filter(f => primaryMap[normalizeVegForm(f.vegForm)] !== undefined)
-      .map(f => ({ name: f.vegForm, fullPct: f.percentage, primaryPct: primaryMap[normalizeVegForm(f.vegForm)], delta: primaryMap[normalizeVegForm(f.vegForm)] - f.percentage }))
-      .filter(c => Math.abs(c.delta) >= 5)
+      .map(f => { const key = normalizeVegForm(f.vegForm); return { name: key, fullPct: f.percentage, primaryPct: primaryMap[key], delta: primaryMap[key] - f.percentage }; })
+      .filter(c => c.primaryPct !== undefined && Math.abs(c.delta) >= 5)
       .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
       .slice(0, 3);
-    const base = `${beKlalYaar(name)}, ${overview} משטח היער.`;
-    if (!changes.length) return `${base} בשכבה הראשית לא נמצאו שינויים משמעותיים ביחס לכלל היער.`;
-    const changeText = changes.map(c => `${c.name} ${c.delta > 0 ? 'עולה' : 'יורד'} מ-${c.fullPct}% ל-${c.primaryPct}%`).join('; ');
-    return `${base} בשכבה הראשית, ${changeText}.`;
+    const opening = 'לעומת התפלגות תצורת הצומח של כלל היער, בהתפלגות תצורת הצומח של השכבה הראשית';
+    if (!changes.length) return `${opening} לא נמצאו שינויים משמעותיים.`;
+    // First change gets the full "אחוז היער X" lead-in; from the second change
+    // on, just "ה-X" — matching how a human writer drops the repeated phrase.
+    const clause = (c, i) => `${i === 0 ? `אחוז היער ${c.name} ` : `ה${c.name} `}${c.delta > 0 ? 'עולה' : 'יורד'} מ-${c.fullPct}% ל-${c.primaryPct}%`;
+    if (changes.length === 1) return `${opening} ${clause(changes[0], 0)}.`;
+    let sentence = `${opening} ${clause(changes[0], 0)}, בעוד ${clause(changes[1], 1)}.`;
+    if (changes.length === 3) sentence += ` ${clause(changes[2], 2)}.`;
+    return sentence;
   };
 
   const buildLayerInsight = (analysis, name) => {
@@ -475,12 +587,25 @@ export default function ForestInsightsAgent() {
 
   const buildDensityInsight = (analysis, name) => {
     const density = analysis.densityDistribution || [];
+    if (!density.length) return 'לא נמצאו נתוני צפיפות מספקים בקובץ.';
+    return `הצפיפות הדומיננטית ${inYaar(name)} היא ${density[0].density} (${density[0].percentage}% משטח היער).`;
+  };
+
+  const buildStructureInsight = (analysis, name) => {
     const comp = analysis.compositionDistribution || [];
-    if (!density.length && !comp.length) return 'לא נמצאו נתוני צפיפות ומבנה מספקים בקובץ.';
-    const parts = [];
-    if (density.length) parts.push(`הצפיפות הדומיננטית ${inYaar(name)} היא ${density[0].density} (${density[0].percentage}% משטח היער)`);
-    if (comp.length) parts.push(`מבנה שכבות היער הנפוץ ביותר הוא ${comp[0].composition} (${comp[0].percentage}%)`);
-    return parts.join('. ') + '.';
+    if (!comp.length) return 'לא נמצאו נתוני מבנה שכבות מספקים בקובץ.';
+    return `מבנה שכבות היער הנפוץ ביותר ${inYaar(name)} הוא ${comp[0].composition} (${comp[0].percentage}%).`;
+  };
+
+  const buildStructureVegInsight = (analysis, name) => {
+    const cross = (analysis.structureVegCross || []).filter(c => c.percentage > 0);
+    if (!cross.length) return 'לא נמצאו נתונים מספקים להצלבה בין מבנה שכבות לתצורת צומח בקובץ.';
+    const parts = cross.map(c => {
+      if (c.isNoTree) return `${relPct(c.percentage)} מהיער ללא קומת עצים`;
+      const detail = c.topForms.length ? ` (לרוב ${joinHe(c.topForms)})` : '';
+      return `${relPct(c.percentage)} מהיער במבנה ${c.composition}${detail}`;
+    });
+    return `${inYaar(name)}, ${joinHe(parts)}.`;
   };
 
   const buildHealthInsight = (analysis, name) => {
@@ -508,7 +633,7 @@ export default function ForestInsightsAgent() {
     return sentences.join(' ');
   };
 
-  const BUILDERS = { veg: buildVegInsight, compare: buildCompareInsight, layer: buildLayerInsight, density: buildDensityInsight, health: buildHealthInsight };
+  const BUILDERS = { veg: buildVegInsight, vegform: buildVegFormDistInsight, compare: buildCompareInsight, layer: buildLayerInsight, density: buildDensityInsight, structure: buildStructureInsight, health: buildHealthInsight };
 
   const buildPrompt = (analysis, userPrompt) => [
     '# Role',
@@ -564,9 +689,10 @@ export default function ForestInsightsAgent() {
       // entirely and assemble the sentence deterministically. Free-text
       // questions (or an edited template) still go through Claude.
       const matched = templates.find(t => t.rules === prompt);
-      const text = (matched && BUILDERS[matched.id])
+      let text = (matched && BUILDERS[matched.id])
         ? BUILDERS[matched.id](analysis, forestName)
         : await callAPI(buildPrompt(analysis, prompt));
+      if (matched?.id === 'structure') text += ' ' + buildStructureVegInsight(analysis, forestName);
       setInsight(text);
       setInsightNote((matched?.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE : null);
     } catch (err) { setError('שגיאה בניתוח: ' + err.message); }
@@ -583,9 +709,12 @@ export default function ForestInsightsAgent() {
         const analysis = analyzeLocally(features, t.rules);
         const text = BUILDERS[t.id] ? BUILDERS[t.id](analysis, forestName) : '';
         const note = (t.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE : null;
-        return { id: t.id, name: t.name, text, note, error: null };
+        // The structure row also carries the structure×vegform cross-tab as a
+        // second block, rendered below the chart instead of as its own row.
+        const secondaryText = (t.id === 'structure') ? buildStructureVegInsight(analysis, forestName) : null;
+        return { id: t.id, name: t.name, text, note, secondaryText, error: null };
       } catch (err) {
-        return { id: t.id, name: t.name, text: null, note: null, error: err.message };
+        return { id: t.id, name: t.name, text: null, note: null, secondaryText: null, error: err.message };
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -604,7 +733,12 @@ export default function ForestInsightsAgent() {
     if (!fullAnalysis) return null;
     const veg = fullAnalysis.vegFormDistribution || [];
     const cover = fullAnalysis.coverTypeDistribution || [];
+    const species = fullAnalysis.speciesDistribution || [];
+    const speciesChartData = (fullAnalysis.speciesOtherPercentage > 0)
+      ? [...species, { species: 'שאר המינים', percentage: fullAnalysis.speciesOtherPercentage, isOther: true }]
+      : species;
     const speciesDetail = fullAnalysis.speciesDetail || {};
+    const vegFormRaw = fullAnalysis.vegFormRaw || [];
     const layers = fullAnalysis.primary_ForestLayer || [];
     const density = fullAnalysis.densityDistribution || [];
     const composition = fullAnalysis.compositionDistribution || [];
@@ -621,51 +755,64 @@ export default function ForestInsightsAgent() {
       { name: 'עצים פגועים', value: h.harmPct }
     ] : [];
 
-    return { veg, cover, speciesDetail, layers, density, composition, h, healthData, compareData };
+    return { veg, cover, species, speciesChartData, speciesDetail, vegFormRaw, layers, density, composition, h, healthData, compareData };
   }, [fullAnalysis]);
 
   const NoChartData = () => <p className="text-sm text-gray-400 flex items-center justify-center h-full py-8">אין נתונים גרפיים זמינים</p>;
 
   // One small chart renderer per template id — this is the "left column" of each insight row.
   const CHART_RENDERERS = {
-    veg: (d) => (!d.veg.length && !d.cover.length) ? <NoChartData /> : (
+    veg: (d) => (!d.veg.length && !d.species.length) ? <NoChartData /> : (
       <div className="space-y-4">
         {d.veg.length > 0 && (
-          <ResponsiveContainer width="100%" height={210}>
-            <PieChart margin={{ top: 4, bottom: 4 }}>
-              <Pie data={d.veg} dataKey="percentage" nameKey="form" cx="50%" cy="42%" outerRadius={58}
-                stroke="#fff" strokeWidth={2}
-                label={({ percentage }) => `${percentage}%`} labelLine={{ strokeWidth: 1 }}>
-                {d.veg.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-              </Pie>
-              <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
-              <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <>
+            <p className="text-xs font-semibold text-gray-500">התפלגות הרכב המינים</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={d.veg} margin={{ top: 16, bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="form" tick={{ fontSize: 10, fill: '#374151' }} angle={-20} textAnchor="end" interval={0} axisLine={{ stroke: '#d1d5db' }} />
+                <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+                <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+                <Bar dataKey="percentage" radius={[6, 6, 0, 0]}>
+                  {d.veg.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+                  <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </>
         )}
-        {d.cover.length > 0 && (
-          <ResponsiveContainer width="100%" height={190}>
-            <BarChart data={d.cover} layout="vertical" margin={{ left: 10, right: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-              <XAxis type="number" unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
-              <YAxis type="category" dataKey="covertype" width={100} tick={{ fontSize: 10.5, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
-              <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
-              <Bar dataKey="percentage" radius={[0, 6, 6, 0]}>
-                {d.cover.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-                <LabelList dataKey="percentage" position="right" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-        {Object.keys(d.speciesDetail).length > 0 && (
-          <p className="text-xs text-gray-500 leading-relaxed">
-            פירוט מינים (מידע משני):{' '}
-            {Object.entries(d.speciesDetail).map(([cat, names], i) => (
-              <span key={cat}>{i > 0 ? ' · ' : ''}{cat} ({names.join(', ')})</span>
-            ))}
-          </p>
+        {d.speciesChartData.length > 0 && (
+          <>
+            <p className="text-xs font-semibold text-gray-500">מיני עצים דומיננטיים (stringCoverType)</p>
+            <ResponsiveContainer width="100%" height={190}>
+              <BarChart data={d.speciesChartData} layout="vertical" margin={{ left: 10, right: 24 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+                <XAxis type="number" unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+                <YAxis type="category" dataKey="species" width={100} tick={{ fontSize: 10.5, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+                <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+                <Bar dataKey="percentage" radius={[0, 6, 6, 0]}>
+                  {d.speciesChartData.map((entry, i) => <Cell key={i} fill={entry.isOther ? '#9ca3af' : SPECIES_BLUES[i % SPECIES_BLUES.length]} />)}
+                  <LabelList dataKey="percentage" position="right" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </>
         )}
       </div>
+    ),
+    vegform: (d) => d.vegFormRaw.length === 0 ? <NoChartData /> : (
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={d.vegFormRaw} margin={{ top: 16, bottom: 40 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+          <XAxis dataKey="form" tick={{ fontSize: 10, fill: '#374151' }} angle={-20} textAnchor="end" interval={0} axisLine={{ stroke: '#d1d5db' }} />
+          <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+          <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+          <Bar dataKey="percentage" radius={[6, 6, 0, 0]}>
+            {d.vegFormRaw.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+            <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     ),
     compare: (d) => d.compareData.length === 0 ? <NoChartData /> : (
       <ResponsiveContainer width="100%" height={230}>
@@ -698,41 +845,31 @@ export default function ForestInsightsAgent() {
         </BarChart>
       </ResponsiveContainer>
     ),
-    density: (d) => (!d.density.length && !d.composition.length) ? <NoChartData /> : (
-      <div className="space-y-4">
-        {d.density.length > 0 && (
-          <>
-            <p className="text-xs font-semibold text-gray-500">צפיפות</p>
-            <ResponsiveContainer width="100%" height={170}>
-              <BarChart data={d.density} margin={{ top: 14 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="density" tick={{ fontSize: 10.5, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
-                <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
-                <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
-                <Bar dataKey="percentage" fill="#0ea5e9" radius={[6, 6, 0, 0]}>
-                  <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fontWeight: 600, fill: '#0369a1' }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </>
-        )}
-        {d.composition.length > 0 && (
-          <>
-            <p className="text-xs font-semibold text-gray-500">מבנה שכבות היער</p>
-            <ResponsiveContainer width="100%" height={170}>
-              <BarChart data={d.composition} margin={{ top: 14 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="composition" tick={{ fontSize: 10.5, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
-                <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
-                <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
-                <Bar dataKey="percentage" fill="#7c3aed" radius={[6, 6, 0, 0]}>
-                  <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fontWeight: 600, fill: '#6d28d9' }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </>
-        )}
-      </div>
+    density: (d) => d.density.length === 0 ? <NoChartData /> : (
+      <ResponsiveContainer width="100%" height={190}>
+        <BarChart data={d.density} margin={{ top: 14 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+          <XAxis dataKey="density" tick={{ fontSize: 10.5, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+          <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+          <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+          <Bar dataKey="percentage" fill="#0ea5e9" radius={[6, 6, 0, 0]}>
+            <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fontWeight: 600, fill: '#0369a1' }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    ),
+    structure: (d) => d.composition.length === 0 ? <NoChartData /> : (
+      <ResponsiveContainer width="100%" height={190}>
+        <BarChart data={d.composition} margin={{ top: 14 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+          <XAxis dataKey="composition" tick={{ fontSize: 10.5, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+          <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+          <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+          <Bar dataKey="percentage" fill="#7c3aed" radius={[6, 6, 0, 0]}>
+            <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 10, fontWeight: 600, fill: '#6d28d9' }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     ),
     health: (d) => !d.h ? <NoChartData /> : (
       <div>
@@ -883,7 +1020,7 @@ export default function ForestInsightsAgent() {
                         <div className={`px-4 py-2 flex items-center justify-between ${r.error ? 'bg-red-50' : 'bg-green-50'}`}>
                           <span className="font-semibold text-sm text-gray-700">{r.name}</span>
                           {r.text && (
-                            <button onClick={() => copyText(r.text, i)}
+                            <button onClick={() => copyText(r.secondaryText ? `${r.text} ${r.secondaryText}` : r.text, i)}
                               className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 transition">
                               {copiedIdx === i ? <><Check className="w-3.5 h-3.5" />הועתק</> : <><Copy className="w-3.5 h-3.5" />העתק</>}
                             </button>
@@ -891,6 +1028,14 @@ export default function ForestInsightsAgent() {
                         </div>
                         {r.error ? (
                           <div className="p-4 flex items-center gap-2 text-red-600 text-sm"><AlertTriangle className="w-4 h-4" />{r.error}</div>
+                        ) : r.secondaryText ? (
+                          <div className="p-4 space-y-4">
+                            <p className="text-gray-800 leading-relaxed">{r.text}</p>
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              {chartData && CHART_RENDERERS[r.id] ? CHART_RENDERERS[r.id](chartData) : <NoChartData />}
+                            </div>
+                            <p className="text-gray-800 leading-relaxed">{r.secondaryText}</p>
+                          </div>
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                             <div>
