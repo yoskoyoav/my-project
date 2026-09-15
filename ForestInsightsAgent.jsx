@@ -31,11 +31,6 @@ const templates = [
     rules: 'נתח את שדה ForestVegForm (הגולמי, ללא מיזוג וללא הדרת קומת קרקע — כל הקטגוריות, 100% משטח היער) וצור תובנה לפי הפורמט הבא.\n\nכללי מילוי:\n- מיין את קטגוריות ForestVegForm לפי שטח (אחוז מתוך כלל שטח היער).\n- הקטגוריה הגדולה ביותר: ציין את שמה ואת אחוזה בשפה יחסית.\n- כל קטגוריה נוספת ששטחה 10% ומעלה: ציין את שמה ואת אחוזה, גם היא בשפה יחסית (אותם כללי עיגול בדיוק כמו הקטגוריה הראשונה).\n- כל הקטגוריות ששטחן מתחת ל-10%: מקובצות יחד במשפט נפרד בסוף, כל השמות (לא רק חלקן), בלי לציין אחוז לכל אחת בנפרד — רק לציין שמדובר ב"אחוזים בודדים".\n\nכללי שפה:\n- שפה יחסית לאחוזים: אותם כללים בדיוק שנקבעו לכל שאר התבניות (relPct המאוחד) — אין כלל נפרד לתבנית הזו.\n- רצף משפטים זורם, ללא כותרות או נקודות'
   },
   {
-    id: 'layer',
-    name: 'התפלגות קומות גובה',
-    rules: 'נתח את שדות primary_ForestLayer ו-Dunam.\nחשב התפלגות primary_ForestLayer לפי שטח באחוזים יחסיים.\nכתוב משפט מסכם בפורמט:\n"מרבית השטח היערני מצוי בקומת הגובה ה{קומה} (כ-X% משטח היער), ולאחריה קומת הגובה ה{קומה} (כ-X%) וקומת הגובה ה{קומה} (כ-X%)."\nכללים:\n- עגל אחוזים למספרים עגולים\n- סדר לפי גודל שטח'
-  },
-  {
     id: 'structure',
     name: 'מבנה שכבות היער',
     rules: 'נתח את שדה ForestAgeComposition.\nצור תובנה על התפלגות מבנה שכבות היער (חד-שכבתי/דו-שכבתי/רב-שכבתי) באחוזים.\n\nכללים:\n- התייחס רק לערכים שאינם "לא רלוונטי"\n- עגל אחוזים\n- הדגש את מבנה השכבות הנפוץ ביותר\n- אל תוסיף מסקנה או פרשנות מעבר לנתונים (ללא "מה שמצביע על", "מה שמעיד על", "המעיד על" וכו)\n- תאר רק את הנתונים עצמם בצורה עובדתית\n\nבנוסף, הצלבה בין ForestAgeComposition ל-ForestVegForm: לכל קטגוריית מבנה (מהגדול לקטן) - אם "אין קומת עצים", ציין רק אחוז; אחרת ציין אחוז ואת תצורת/תצורות הצומח הדומיננטיות בתוכה.'
@@ -44,6 +39,21 @@ const templates = [
     id: 'compare',
     name: 'השוואת תצורות צומח - כלל היער מול שכבה ראשית',
     rules: 'נתח את שדות ForestVegForm, primary_VegForm ו-Dunam וצור תובנה השוואתית.\n\nחשב התפלגות אחוזית (לפי Dunam) בנפרד עבור:\n1. ForestVegForm - תצורת הצומח של כלל היער\n2. primary_VegForm - תצורת הצומח של השכבה הראשית בלבד\n\nפורמט התובנה:\nתאר תחילה את ההתפלגות של כלל היער, ואז הצג כיצד משתנה ההתפלגות בשכבה הראשית - תוך דגש על תצורות שעלו או ירדו באופן משמעותי.\n\nכללי שפה:\n- השתמש בשפה יחסית לערכים גדולים (כמחצית, שליש) ובאחוזים מדויקים לערכים קטנים (<25%)\n- דגש על שינויים - מה עולה ומה יורד בין שתי ההתפלגויות\n- תאר אך ורק את השינויים המספריים בין שתי ההתפלגויות. אסור בהחלט לכתוב כל ביטוי פרשני או מסיק, כולל: "המעידה כי", "המלמדת כי", "מה שמצביע", "מה שמעיד", "מה שמלמד", "כלומר", "כך ש", "ולכן", "דבר המצביע", "דבר המעיד". המשפטים חייבים להכיל אך ורק מספרים ותיאור השינוי.\n- אין לאחד קטגוריות שאינן שייכות יחד (מחטני ורחבי עלים נשארים נפרדים תמיד)\n- רצף משפטים זורם, ללא כותרות'
+  },
+  {
+    id: 'layer',
+    name: 'התפלגות השכבה הראשית על פי קומות הגובה',
+    rules: 'נתח את שדות primary_ForestLayer ו-Dunam.\nחשב התפלגות primary_ForestLayer לפי שטח באחוזים יחסיים.\nכתוב משפט מסכם בפורמט:\n"מרבית השטח היערני מצוי בקומת הגובה ה{קומה} (כ-X% משטח היער), ולאחריה קומת הגובה ה{קומה} (כ-X%) וקומת הגובה ה{קומה} (כ-X%)."\nכללים:\n- עגל אחוזים למספרים עגולים\n- סדר לפי גודל שטח'
+  },
+  {
+    id: 'layerCover',
+    name: 'התפלגות השכבה הראשית על פי כיסוי',
+    rules: 'נתח את שדה primary_LayerCover (כיסוי שכבה ראשית) ו-Dunam.\nחשב התפלגות primary_LayerCover לפי שטח באחוזים יחסיים מתוך כלל שטח היער.\n\nכללי מילוי:\n- ציין את קטגוריית הכיסוי הדומיננטית ואת אחוזה.\n- אם היא דומיננטית בבירור (כמו בשאר התבניות - פי 2 מהבאה בתור) - הוסף רק משפט טריילר קצר על הקטגוריה הקטנה ביותר ("רק X% בכיסוי Y"), בלי לפרט את הקטגוריות שבאמצע.\n- אחרת - פרט את 2-3 הקטגוריות המובילות (כמו בתבנית קומות הגובה), עם משפט טריילר לקטגוריה הרביעית אם קיימת.\n\nכללי שפה: אותם כללים בדיוק שנקבעו לכל שאר התבניות (relPct המאוחד, isDominant המאוחד).'
+  },
+  {
+    id: 'ageVeg',
+    name: 'התפלגות קבוצות הגיל ותצורות הצומח של השכבה הראשית',
+    rules: 'הצלבה בין ActualAgeGroup (מקובץ לקבוצות אם: חדש/צעיר/מתבגר/בוגר/ותיק) ל-primary_VegForm.\n\nכללי מילוי:\n- קבץ את ActualAgeGroup לקבוצת האם שלו (המילה הראשונה בערך, למשל "ותיק (61-75)" -> "ותיק").\n- השמט עומדים ש-primary_VegForm שלהם הוא "חורש" (גיל לא רלוונטי עבורם).\n- לכל קבוצת גיל, פלג לפי primary_VegForm (בדונם, לא אחוזים - כמו בדוגמה).\n\nזוהי תבנית עם גרף בלבד בשלב זה - התובנה הטקסטואלית תיבנה בהמשך.'
   },
   {
     id: 'density',
@@ -130,7 +140,7 @@ export default function ForestInsightsAgent() {
       }
     }
     setForestName(name);
-    const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח forestvegform primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה density צפיפות מבנה health בריאות התנוונות פולשים';
+    const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח forestvegform primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה primary_layercover actualagegroup density צפיפות מבנה health בריאות התנוונות פולשים';
     setFullAnalysis(analyzeLocally(features, allFieldsTrigger));
   };
 
@@ -360,7 +370,73 @@ export default function ForestInsightsAgent() {
     if (lowerPrompt.includes('primary_forestlayer') || lowerPrompt.includes('קומת גובה')) {
       const dist = {};
       features.forEach(f => { const l = f.attributes?.primary_ForestLayer || 'לא מוגדר'; dist[l] = (dist[l] || 0) + (f.attributes?.Dunam || 0); });
-      res.primary_ForestLayer = Object.entries(dist).filter(([l]) => !isVague(l)).map(([layer, area]) => ({ layer, area, percentage: Math.round((area / totalArea) * 100) })).sort((a, b) => b.area - a.area);
+      // "אין" is a placeholder meaning "no primary layer recorded" — not a real
+      // height tier. Left in, it leaked into the sentence as "השכבה הראשית
+      // היא האין", which is meaningless.
+      res.primary_ForestLayer = Object.entries(dist).filter(([l]) => !isVague(l) && l !== 'אין').map(([layer, area]) => ({ layer, area, percentage: Math.round((area / totalArea) * 100) })).sort((a, b) => b.area - a.area);
+    }
+
+    if (lowerPrompt.includes('primary_layercover') || lowerPrompt.includes('כיסוי שכבה ראשית')) {
+      const dist2 = {};
+      features.forEach(f => { const c = f.attributes?.primary_LayerCover || 'לא מוגדר'; dist2[c] = (dist2[c] || 0) + (f.attributes?.Dunam || 0); });
+      res.primary_LayerCover = Object.entries(dist2).filter(([c]) => !isVague(c) && c !== 'אין').map(([cover, area]) => ({ cover, area, percentage: Math.round((area / totalArea) * 100) })).sort((a, b) => b.area - a.area);
+    }
+
+    if (lowerPrompt.includes('actualagegroup') || lowerPrompt.includes('קבוצת גיל')) {
+      // ActualAgeGroup values are "{parent group} (range)", e.g. "ותיק (61-75)" —
+      // the parent bucket is just the leading word. "חורש" is excluded from the
+      // vegform breakdown entirely (its age isn't meaningful), and "לא רלוונטי"
+      // ages are dropped by the generic isVague filter below.
+      const ageOrder = ['חדש', 'צעיר', 'מתבגר', 'בוגר', 'ותיק'];
+      const cross = {};
+      const vegTotals = {};
+      features.forEach(f => {
+        const age = f.attributes?.ActualAgeGroup;
+        const vf = f.attributes?.primary_VegForm;
+        const a = f.attributes?.Dunam || 0;
+        if (!age || isVague(age)) return;
+        if (!vf || isVague(vf) || vf === 'חורש') return;
+        const parent = age.trim().split(' ')[0];
+        if (!ageOrder.includes(parent)) return;
+        cross[parent] = cross[parent] || {};
+        cross[parent][vf] = (cross[parent][vf] || 0) + a;
+        vegTotals[vf] = (vegTotals[vf] || 0) + a;
+      });
+      // Cap the number of stacked series so the chart stays legible — the
+      // smaller vegforms get folded into "אחר".
+      const topVegForms = Object.entries(vegTotals).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k);
+      const hasOther = Object.keys(vegTotals).length > topVegForms.length;
+      // % of the total forest area (same denominator every other template
+      // uses) — not % within the age group, so bar heights stay comparable
+      // across age groups and the chart honestly shows how much of the whole
+      // forest each slice represents.
+      const toPct = (area) => totalArea > 0 ? Math.round((area / totalArea) * 100) : 0;
+      const data = ageOrder.filter(g => cross[g]).map(g => {
+        const row = { ageGroup: g };
+        let otherSum = 0;
+        Object.entries(cross[g]).forEach(([vf, area]) => {
+          if (topVegForms.includes(vf)) row[vf] = toPct(area);
+          else otherSum += area;
+        });
+        if (hasOther && otherSum > 0) row['אחר'] = toPct(otherSum);
+        return row;
+      });
+      const coveredArea = Object.values(vegTotals).reduce((s, v) => s + v, 0);
+      const coveredPct = totalArea > 0 ? Math.round((coveredArea / totalArea) * 100) : 0;
+      res.ageGroupVegForm = { data, keys: [...topVegForms, ...(hasOther ? ['אחר'] : [])], coveredPercentage: coveredPct };
+
+      // Per age group: its share of the whole forest, and which vegform
+      // dominates *within* that group specifically (% of the group's own
+      // area, not the whole forest — a different question than the chart).
+      res.ageGroupDetail = ageOrder.filter(g => cross[g]).map(g => {
+        const groupArea = Object.values(cross[g]).reduce((s, v) => s + v, 0);
+        const vfList = Object.entries(cross[g]).map(([form, area]) => ({ form, area, percentage: groupArea > 0 ? Math.round((area / groupArea) * 100) : 0 })).sort((a, b) => b.area - a.area);
+        return {
+          ageGroup: g,
+          percentage: totalArea > 0 ? Math.round((groupArea / totalArea) * 100) : 0,
+          topVegForm: vfList[0] || null,
+        };
+      }).sort((a, b) => b.percentage - a.percentage);
     }
 
     if (lowerPrompt.includes('density') || lowerPrompt.includes('צפיפות') || lowerPrompt.includes('מבנה')) {
@@ -530,6 +606,9 @@ export default function ForestInsightsAgent() {
   // folded into the sentence) whenever ground-layer forms were excluded.
   const GROUND_LAYER_NOTE = 'החישוב אינו כולל תצורות מקומת הקרקע (שיחייה, בתה, עשבוני, יער נמוך).';
 
+  const ageVegNote = (coveredPct) =>
+    `בגרף הושמטו עומדי חורש (שגילם אינו רלוונטי) וכן עומדים ללא נתון גיל תקף. סך כל האחוזים בגרף הוא ${coveredPct}%; היתרה (${100 - coveredPct}%) כוללת חורש ותצורות נוספות ללא נתון גיל.`;
+
   const buildVegFormDistInsight = (analysis, name) => {
     const list = analysis.vegFormRaw || [];
     if (!list.length) return 'לא נמצאו נתוני תצורת צומח מספקים בקובץ.';
@@ -575,14 +654,41 @@ export default function ForestInsightsAgent() {
   const buildLayerInsight = (analysis, name) => {
     const layers = analysis.primary_ForestLayer || [];
     if (!layers.length) return 'לא נמצאו נתוני קומות גובה בקובץ.';
-    const [l1, l2, l3] = layers;
-    if (isDominant(layers)) {
-      return `רוב השטח היערני ${inYaar(name)} מצוי בקומת הגובה ${l1.layer} (כ-${l1.percentage}% משטח היער).`;
+    // "קומת קרקע" needs the article on its second word ("קומת הקרקע"), not a
+    // generic prefix ("הקומת קרקע" would be wrong) — everything else (בינונית,
+    // גבוהה, תמירה) just takes a plain ה- prefix.
+    const withDef = (s) => s.startsWith('קומת ') ? `קומת ה${s.slice(5)}` : `ה${s}`;
+    const [l1, l2, l3, l4] = layers;
+    const base = `רוב השכבות הראשיות ${inYaar(name)} הן בקומת הגובה ${withDef(l1.layer)} (${l1.percentage}% משטח היער)`;
+    if (isDominant(layers)) return `${base}.`;
+    let s = base;
+    if (l2) s += `, ולאחריה קומת הגובה ${withDef(l2.layer)} (${l2.percentage}%)`;
+    if (l3) s += ` וקומת הגובה ${withDef(l3.layer)} (${l3.percentage}%)`;
+    s += '.';
+    if (l4 && l4.percentage > 0) s += ` ב-${l4.percentage}% מהיער השכבה הראשית היא ${withDef(l4.layer)}.`;
+    return s;
+  };
+
+  const buildLayerCoverInsight = (analysis, name) => {
+    const list = analysis.primary_LayerCover || [];
+    if (!list.length) return 'לא נמצאו נתוני כיסוי שכבה ראשית בקובץ.';
+    // The raw values carry a built-in coverage range, e.g. "בינוני (33%-66%)".
+    // That's useful on the chart's axis, but in the sentence it duplicates the
+    // actual percentage right next to it — "בכיסוי בינוני (33%-66%) (41%)" reads
+    // as the same number twice. Just the plain word in the text.
+    const plain = (s) => s.replace(/\s*\([^)]*%[^)]*\)\s*$/, '').trim();
+    const [c1, c2, c3, c4] = list;
+    const base = `רוב השכבות הראשיות ${inYaar(name)} הן בכיסוי ${plain(c1.cover)} (${c1.percentage}%)`;
+    if (isDominant(list)) {
+      const last = list[list.length - 1];
+      return last.percentage > 0 ? `${base}. רק ${last.percentage}% בכיסוי ${plain(last.cover)}.` : `${base}.`;
     }
-    let s = `${name ? `${inYaar(name)}, מ` : 'מ'}רבית השטח היערני מצוי בקומת הגובה ${l1.layer} (כ-${l1.percentage}% משטח היער)`;
-    if (l2) s += `, ולאחריה קומת הגובה ${l2.layer} (כ-${l2.percentage}%)`;
-    if (l3) s += ` וקומת הגובה ${l3.layer} (כ-${l3.percentage}%)`;
-    return s + '.';
+    let s = base;
+    if (c2) s += `, ולאחריו כיסוי ${plain(c2.cover)} (${c2.percentage}%)`;
+    if (c3) s += ` וכיסוי ${plain(c3.cover)} (${c3.percentage}%)`;
+    s += '.';
+    if (c4 && c4.percentage > 0) s += ` רק ${c4.percentage}% בכיסוי ${plain(c4.cover)}.`;
+    return s;
   };
 
   const buildDensityInsight = (analysis, name) => {
@@ -606,6 +712,17 @@ export default function ForestInsightsAgent() {
       return `${relPct(c.percentage)} מהיער במבנה ${c.composition}${detail}`;
     });
     return `${inYaar(name)}, ${joinHe(parts)}.`;
+  };
+
+  const buildAgeVegInsight = (analysis, name) => {
+    const detail = analysis.ageGroupDetail || [];
+    if (!detail.length) return 'לא נמצאו נתוני קבוצות גיל ותצורת צומח מספקים בקובץ.';
+    const [g1, g2] = detail;
+    let s = `קבוצת הגיל הנפוצה ביותר עבור השכבה הראשית ${inYaar(name)} היא ${g1.ageGroup} (${g1.percentage}%)`;
+    if (!isDominant(detail) && g2) s += `, ואחריה ${g2.ageGroup} (${g2.percentage}%)`;
+    s += '.';
+    if (g1.topVegForm) s += ` בתוך קבוצת הגיל ${g1.ageGroup}, תצורת הצומח הדומיננטית היא ${g1.topVegForm.form}.`;
+    return s;
   };
 
   const buildHealthInsight = (analysis, name) => {
@@ -633,7 +750,7 @@ export default function ForestInsightsAgent() {
     return sentences.join(' ');
   };
 
-  const BUILDERS = { veg: buildVegInsight, vegform: buildVegFormDistInsight, compare: buildCompareInsight, layer: buildLayerInsight, density: buildDensityInsight, structure: buildStructureInsight, health: buildHealthInsight };
+  const BUILDERS = { veg: buildVegInsight, vegform: buildVegFormDistInsight, compare: buildCompareInsight, layer: buildLayerInsight, layerCover: buildLayerCoverInsight, ageVeg: buildAgeVegInsight, density: buildDensityInsight, structure: buildStructureInsight, health: buildHealthInsight };
 
   const buildPrompt = (analysis, userPrompt) => [
     '# Role',
@@ -694,7 +811,11 @@ export default function ForestInsightsAgent() {
         : await callAPI(buildPrompt(analysis, prompt));
       if (matched?.id === 'structure') text += ' ' + buildStructureVegInsight(analysis, forestName);
       setInsight(text);
-      setInsightNote((matched?.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE : null);
+      setInsightNote(
+        (matched?.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE
+        : (matched?.id === 'ageVeg' && analysis.ageGroupVegForm) ? ageVegNote(analysis.ageGroupVegForm.coveredPercentage)
+        : null
+      );
     } catch (err) { setError('שגיאה בניתוח: ' + err.message); }
     finally { setLoading(false); }
   };
@@ -708,7 +829,9 @@ export default function ForestInsightsAgent() {
       try {
         const analysis = analyzeLocally(features, t.rules);
         const text = BUILDERS[t.id] ? BUILDERS[t.id](analysis, forestName) : '';
-        const note = (t.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE : null;
+        const note = (t.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE
+          : (t.id === 'ageVeg' && analysis.ageGroupVegForm) ? ageVegNote(analysis.ageGroupVegForm.coveredPercentage)
+          : null;
         // The structure row also carries the structure×vegform cross-tab as a
         // second block, rendered below the chart instead of as its own row.
         const secondaryText = (t.id === 'structure') ? buildStructureVegInsight(analysis, forestName) : null;
@@ -740,6 +863,8 @@ export default function ForestInsightsAgent() {
     const speciesDetail = fullAnalysis.speciesDetail || {};
     const vegFormRaw = fullAnalysis.vegFormRaw || [];
     const layers = fullAnalysis.primary_ForestLayer || [];
+    const layerCover = fullAnalysis.primary_LayerCover || [];
+    const ageGroupVegForm = fullAnalysis.ageGroupVegForm || { data: [], keys: [] };
     const density = fullAnalysis.densityDistribution || [];
     const composition = fullAnalysis.compositionDistribution || [];
     const h = fullAnalysis.healthMetrics;
@@ -755,7 +880,7 @@ export default function ForestInsightsAgent() {
       { name: 'עצים פגועים', value: h.harmPct }
     ] : [];
 
-    return { veg, cover, species, speciesChartData, speciesDetail, vegFormRaw, layers, density, composition, h, healthData, compareData };
+    return { veg, cover, species, speciesChartData, speciesDetail, vegFormRaw, layers, layerCover, ageGroupVegForm, density, composition, h, healthData, compareData };
   }, [fullAnalysis]);
 
   const NoChartData = () => <p className="text-sm text-gray-400 flex items-center justify-center h-full py-8">אין נתונים גרפיים זמינים</p>;
@@ -845,6 +970,35 @@ export default function ForestInsightsAgent() {
         </BarChart>
       </ResponsiveContainer>
     ),
+    layerCover: (d) => d.layerCover.length === 0 ? <NoChartData /> : (
+      <ResponsiveContainer width="100%" height={230}>
+        <BarChart data={d.layerCover} margin={{ top: 16 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+          <XAxis dataKey="cover" tick={{ fontSize: 11, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+          <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+          <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+          <Bar dataKey="percentage" radius={[6, 6, 0, 0]}>
+            {d.layerCover.map((_, i) => <Cell key={i} fill={SPECIES_BLUES[i % SPECIES_BLUES.length]} />)}
+            <LabelList dataKey="percentage" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    ),
+    ageVeg: (d) => d.ageGroupVegForm.data.length === 0 ? <NoChartData /> : (
+      <ResponsiveContainer width="100%" height={260}>
+        <BarChart data={d.ageGroupVegForm.data} margin={{ top: 16 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+          <XAxis dataKey="ageGroup" tick={{ fontSize: 11, fill: '#374151' }} axisLine={{ stroke: '#d1d5db' }} />
+          <YAxis unit="%" tick={AXIS_TICK} axisLine={{ stroke: '#d1d5db' }} />
+          <Tooltip formatter={(v) => `${v}%`} contentStyle={TOOLTIP_STYLE} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          {d.ageGroupVegForm.keys.map((k, i) => (
+            <Bar key={k} dataKey={k} stackId="a" fill={k === 'אחר' ? '#9ca3af' : PALETTE[i % PALETTE.length]}
+              radius={i === d.ageGroupVegForm.keys.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    ),
     density: (d) => d.density.length === 0 ? <NoChartData /> : (
       <ResponsiveContainer width="100%" height={190}>
         <BarChart data={d.density} margin={{ top: 14 }}>
@@ -928,8 +1082,8 @@ export default function ForestInsightsAgent() {
             <h1 className="text-3xl font-bold text-gray-800">סוכן תובנות יערניות</h1>
           </div>
           <div className="flex items-center gap-3 mb-1">
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">v2.1</span>
-            <span className="text-xs text-gray-400">עודכן לאחרונה: 09.09.2026</span>
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">v2.2</span>
+            <span className="text-xs text-gray-400">עודכן לאחרונה: 15.09.2026</span>
           </div>
           <p className="text-gray-600">העלה קובץ JSON, שאל שאלה, וקבל תובנה מנוסחת</p>
         </div>
