@@ -88,8 +88,11 @@ export default function ForestInsightsAgent() {
   const [savingToLibrary, setSavingToLibrary] = useState(false);
   const [savedNotice, setSavedNotice] = useState('');
   const [deleteConfirmKey, setDeleteConfirmKey] = useState(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkResults, setBulkResults] = useState([]);
 
   const LIB_PREFIX = 'file:';
+  const MAX_LIBRARY_FILE_BYTES = 4.5 * 1024 * 1024;
   const sanitizeKey = (s) => (s || 'יער')
     .replace(/\.json$/i, '')
     .replace(/['"\\/]/g, '')
@@ -113,6 +116,22 @@ export default function ForestInsightsAgent() {
 
   useEffect(() => { refreshLibrary(); }, []);
 
+  // Shared by single-file apply, bulk library upload, and anywhere else that
+  // needs a forest's display name from raw feature data: FOR_NAM first, then
+  // FOR_NO looked up against FOREST_NAMES.
+  const extractForestName = (data) => {
+    const features = data.features || [];
+    for (let i = 0; i < features.length; i++) {
+      const val = features[i]?.attributes?.FOR_NAM;
+      if (val !== null && val !== undefined && val !== '') return val;
+    }
+    for (let i = 0; i < features.length; i++) {
+      const no = features[i]?.attributes?.FOR_NO;
+      if (no !== null && no !== undefined && no !== '') return FOREST_NAMES[parseInt(no)] || '';
+    }
+    return '';
+  };
+
   // Shared by both "upload a file" and "load from the shared library" — parses
   // once, then runs the same forest-name lookup and full analysis either way.
   const applyJsonData = (data, displayName) => {
@@ -125,20 +144,7 @@ export default function ForestInsightsAgent() {
     setSavedNotice('');
     setJsonData(data);
     const features = data.features || [];
-    let name = '';
-    for (let i = 0; i < features.length; i++) {
-      const val = features[i]?.attributes?.FOR_NAM;
-      if (val !== null && val !== undefined && val !== '') { name = val; break; }
-    }
-    if (!name) {
-      for (let i = 0; i < features.length; i++) {
-        const no = features[i]?.attributes?.FOR_NO;
-        if (no !== null && no !== undefined && no !== '') {
-          name = FOREST_NAMES[parseInt(no)] || '';
-          break;
-        }
-      }
-    }
+    const name = extractForestName(data);
     setForestName(name);
     const allFieldsTrigger = 'covertype הרכב מינים תצורת צומח forestvegform primary_vegform שכבה ראשית השוואה primary_forestlayer קומת גובה primary_layercover actualagegroup density צפיפות מבנה health בריאות התנוונות פולשים';
     setFullAnalysis(analyzeLocally(features, allFieldsTrigger));
@@ -181,7 +187,7 @@ export default function ForestInsightsAgent() {
     setSavedNotice('');
     try {
       const serialized = JSON.stringify(jsonData);
-      if (serialized.length > 4.5 * 1024 * 1024) {
+      if (serialized.length > MAX_LIBRARY_FILE_BYTES) {
         setLibraryError('הקובץ גדול מדי לשמירה בספרייה (מעל כ-4.5MB).');
         return;
       }
@@ -196,6 +202,50 @@ export default function ForestInsightsAgent() {
     } finally {
       setSavingToLibrary(false);
     }
+  };
+
+  const readFileAsText = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => resolve(ev.target.result);
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.readAsText(file);
+  });
+
+  // Bulk variant of saveToLibrary: takes several files straight from an
+  // <input multiple>, independent of whatever is currently loaded in the
+  // main "upload → analyze" flow (jsonData/fileName/forestName are untouched).
+  // Each file is read, parsed and saved to window.storage in turn — sequential
+  // rather than Promise.all, so storage calls aren't fired in a burst, and so
+  // results can be shown to the user as they land rather than all at once.
+  const handleBulkUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = ''; // allow re-selecting the same file(s) again later
+    if (!files.length) return;
+    setBulkUploading(true);
+    setBulkResults(files.map(f => ({ name: f.name, status: 'pending' })));
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      let entry;
+      try {
+        const text = await readFileAsText(file);
+        const data = JSON.parse(text);
+        const serialized = JSON.stringify(data);
+        if (serialized.length > MAX_LIBRARY_FILE_BYTES) {
+          entry = { name: file.name, status: 'error', message: 'גדול מדי (מעל כ-4.5MB)' };
+        } else {
+          const baseName = extractForestName(data) || file.name.replace(/\.json$/i, '') || 'יער';
+          const key = LIB_PREFIX + sanitizeKey(baseName);
+          const result = await window.storage.set(key, serialized, true);
+          if (!result) throw new Error('empty result');
+          entry = { name: file.name, status: 'success', savedAs: keyToDisplayName(key) };
+        }
+      } catch (err) {
+        entry = { name: file.name, status: 'error', message: 'קובץ JSON לא תקין או שגיאת שמירה' };
+      }
+      setBulkResults(prev => prev.map((r, idx) => idx === i ? entry : r));
+    }
+    setBulkUploading(false);
+    refreshLibrary();
   };
 
   const deleteFromLibrary = async (item) => {
@@ -233,25 +283,13 @@ export default function ForestInsightsAgent() {
     if (lowerPrompt.includes('covertype') || lowerPrompt.includes('הרכב מינים') || lowerPrompt.includes('תצורת צומח')) {
       const vegDist = {}, coverDist = {}, speciesByCover = {}, speciesDist = {};
       let horeshArea = 0, rachaviArea = 0;
-      // Shrubland, low-forest variants, herbaceous, and batha — everything that
-      // used to get grouped into "קומת קרקע" — are not "forest vegetation form /
-      // species composition" in the forestry sense. Excluded entirely here,
-      // including from the % denominator, not just relabeled into a bucket.
-      //
-      // Two things matter here:
-      // 1. Spelling varies between fields for the same word — ForestVegForm
-      //    writes "שיחיה" (one י) while CoverType writes "שיחייה" (two י) for
-      //    the exact same stands. A plain .includes('שיחייה') misses the
-      //    one-י spelling entirely, so this uses a regex that accepts either.
-      // 2. The two fields don't always agree on a stand: some stands have a
-      //    normal ForestVegForm (e.g. "יער רחבי-עלים") but CoverType is still
-      //    "שיחייה". Checking only ForestVegForm lets those leak into the
-      //    species list, so both fields are checked and either one is enough
-      //    to exclude the stand.
-      const groundLayerPattern = /שיחיי?ה|עשבוני|נמוך|בתה/;
-      const isGroundLayer = (v) => !!v && groundLayerPattern.test(v);
+      // Shrubland, low-forest variants, herbaceous, and batha ("ground-layer"
+      // stands) ARE part of species composition and count toward the area
+      // total, exactly as in the reference report — a stand with no tree
+      // canopy is still a real category (e.g. "שיחייה", "בתה"), not something
+      // to drop from the denominator. They simply fall through to the same
+      // per-stand CoverType bucketing as everything else below.
       let vegTotalArea = 0;
-      let excludedArea = 0;
       // "NAME - WEIGHT" pairs, e.g. "אשחר רחב-עלים - 4, אלון מצוי - 6" (weights sum to 10 per stand).
       // Greedy (.*) correctly keeps hyphenated species names intact and only
       // peels off the trailing " - <number>" weight.
@@ -263,9 +301,6 @@ export default function ForestInsightsAgent() {
       // trailing number never gets mistaken for the separator.
       const weightPattern = /^(.*)\s*-\s*(\d+(?:\.\d+)?)$/;
       features.forEach(f => {
-        const vfCheck = f.attributes?.ForestVegForm || 'לא מוגדר';
-        const ctRaw = f.attributes?.CoverType || 'לא מוגדר';
-        if (isGroundLayer(vfCheck) || isGroundLayer(ctRaw)) { excludedArea += f.attributes?.Dunam || 0; return; }
         const dunam = f.attributes?.Dunam || 0;
         vegTotalArea += dunam;
         // Source: CoverType, not ForestVegForm. CoverType's own values already
@@ -310,8 +345,9 @@ export default function ForestInsightsAgent() {
       if (horeshArea > 0 && rachaviArea > 0) vegDist['יער רחבי עלים / חורש'] = horeshArea + rachaviArea;
       else if (horeshArea > 0) vegDist['חורש'] = horeshArea;
       else if (rachaviArea > 0) vegDist['יער רחבי עלים'] = rachaviArea;
-      // % here is of vegTotalArea (post-exclusion), not the forest's full area —
-      // שיחייה/יער נמוך/עשבוני are removed from the denominator, not just hidden.
+      // % here is of vegTotalArea, which now equals the forest's full area —
+      // ground-layer stands (שיחייה/יער נמוך/עשבוני/בתה) are counted like any
+      // other category, matching the reference report.
       // NOTE: despite the field name (kept for backward compat with the rest of
       // the file), this is now grouped from CoverType, not ForestVegForm.
       res.vegFormDistribution = Object.entries(vegDist).filter(([f]) => !isVague(f)).map(([form, area]) => ({ form, area, percentage: vegTotalArea > 0 ? Math.round((area / vegTotalArea) * 100) : 0 })).sort((a, b) => b.area - a.area);
@@ -337,7 +373,6 @@ export default function ForestInsightsAgent() {
           res.speciesDetail[entry.covertype] = names.slice(0, 2);
         }
       });
-      res.groundLayerExcludedArea = excludedArea;
     }
 
     if (lowerPrompt.includes('forestvegform')) {
@@ -406,11 +441,14 @@ export default function ForestInsightsAgent() {
       // smaller vegforms get folded into "אחר".
       const topVegForms = Object.entries(vegTotals).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k);
       const hasOther = Object.keys(vegTotals).length > topVegForms.length;
-      // % of the total forest area (same denominator every other template
-      // uses) — not % within the age group, so bar heights stay comparable
-      // across age groups and the chart honestly shows how much of the whole
-      // forest each slice represents.
-      const toPct = (area) => totalArea > 0 ? Math.round((area / totalArea) * 100) : 0;
+      // Stands with no valid age or with primary_VegForm "חורש" are left out
+      // of the chart entirely (as before) — but the percentages for the
+      // stands that DO appear are now out of 100% of THEIR combined area
+      // (coveredArea), not of the whole forest, so the visible bars actually
+      // sum to 100% instead of silently topping out below it.
+      const coveredArea = Object.values(vegTotals).reduce((s, v) => s + v, 0);
+      const coveredPct = totalArea > 0 ? Math.round((coveredArea / totalArea) * 100) : 0;
+      const toPct = (area) => coveredArea > 0 ? Math.round((area / coveredArea) * 100) : 0;
       const data = ageOrder.filter(g => cross[g]).map(g => {
         const row = { ageGroup: g };
         let otherSum = 0;
@@ -421,19 +459,19 @@ export default function ForestInsightsAgent() {
         if (hasOther && otherSum > 0) row['אחר'] = toPct(otherSum);
         return row;
       });
-      const coveredArea = Object.values(vegTotals).reduce((s, v) => s + v, 0);
-      const coveredPct = totalArea > 0 ? Math.round((coveredArea / totalArea) * 100) : 0;
       res.ageGroupVegForm = { data, keys: [...topVegForms, ...(hasOther ? ['אחר'] : [])], coveredPercentage: coveredPct };
 
-      // Per age group: its share of the whole forest, and which vegform
-      // dominates *within* that group specifically (% of the group's own
-      // area, not the whole forest — a different question than the chart).
+      // Per age group: its share of the stands with a valid age (coveredArea,
+      // same denominator as the chart — not the whole forest, since חורש and
+      // no-age stands are excluded from this breakdown entirely), and which
+      // vegform dominates *within* that group specifically (% of the group's
+      // own area — a different question again).
       res.ageGroupDetail = ageOrder.filter(g => cross[g]).map(g => {
         const groupArea = Object.values(cross[g]).reduce((s, v) => s + v, 0);
         const vfList = Object.entries(cross[g]).map(([form, area]) => ({ form, area, percentage: groupArea > 0 ? Math.round((area / groupArea) * 100) : 0 })).sort((a, b) => b.area - a.area);
         return {
           ageGroup: g,
-          percentage: totalArea > 0 ? Math.round((groupArea / totalArea) * 100) : 0,
+          percentage: coveredArea > 0 ? Math.round((groupArea / coveredArea) * 100) : 0,
           topVegForm: vfList[0] || null,
         };
       }).sort((a, b) => b.percentage - a.percentage);
@@ -602,12 +640,8 @@ export default function ForestInsightsAgent() {
     return `${headline}` + (tail ? ` מיני העצים הדומיננטיים הם ${tail}.` : '');
   };
 
-  // Shown separately from the insight text itself (styled as a caveat, not
-  // folded into the sentence) whenever ground-layer forms were excluded.
-  const GROUND_LAYER_NOTE = 'החישוב אינו כולל תצורות מקומת הקרקע (שיחייה, בתה, עשבוני, יער נמוך).';
-
   const ageVegNote = (coveredPct) =>
-    `בגרף הושמטו עומדי חורש (שגילם אינו רלוונטי) וכן עומדים ללא נתון גיל תקף. סך כל האחוזים בגרף הוא ${coveredPct}%; היתרה (${100 - coveredPct}%) כוללת חורש ותצורות נוספות ללא נתון גיל.`;
+    `הגרף מציג רק עומדי יער בעלי נתון גיל תקף (${coveredPct}% משטח היער); חורש ועומדים ללא נתון גיל (${100 - coveredPct}%) הושמטו. האחוזים בגרף מחושבים מתוך 100% משטח זה.`;
 
   const buildVegFormDistInsight = (analysis, name) => {
     const list = analysis.vegFormRaw || [];
@@ -812,8 +846,7 @@ export default function ForestInsightsAgent() {
       if (matched?.id === 'structure') text += ' ' + buildStructureVegInsight(analysis, forestName);
       setInsight(text);
       setInsightNote(
-        (matched?.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE
-        : (matched?.id === 'ageVeg' && analysis.ageGroupVegForm) ? ageVegNote(analysis.ageGroupVegForm.coveredPercentage)
+        (matched?.id === 'ageVeg' && analysis.ageGroupVegForm) ? ageVegNote(analysis.ageGroupVegForm.coveredPercentage)
         : null
       );
     } catch (err) { setError('שגיאה בניתוח: ' + err.message); }
@@ -829,8 +862,7 @@ export default function ForestInsightsAgent() {
       try {
         const analysis = analyzeLocally(features, t.rules);
         const text = BUILDERS[t.id] ? BUILDERS[t.id](analysis, forestName) : '';
-        const note = (t.id === 'veg' && analysis.groundLayerExcludedArea > 0) ? GROUND_LAYER_NOTE
-          : (t.id === 'ageVeg' && analysis.ageGroupVegForm) ? ageVegNote(analysis.ageGroupVegForm.coveredPercentage)
+        const note = (t.id === 'ageVeg' && analysis.ageGroupVegForm) ? ageVegNote(analysis.ageGroupVegForm.coveredPercentage)
           : null;
         // The structure row also carries the structure×vegform cross-tab as a
         // second block, rendered below the chart instead of as its own row.
@@ -1100,13 +1132,46 @@ export default function ForestInsightsAgent() {
 
           {/* Shared file library */}
           <div className="mt-5 pt-5 border-t border-gray-100">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
               <p className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Library className="w-4 h-4" />או בחר מהספרייה המשותפת</p>
-              <button onClick={refreshLibrary} disabled={libraryLoading} title="רענן"
-                className="text-gray-400 hover:text-green-600 transition disabled:opacity-50">
-                <RefreshCw className={`w-4 h-4 ${libraryLoading ? 'animate-spin' : ''}`} />
-              </button>
+              <div className="flex items-center gap-3">
+                <label className={`flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-900 border border-green-300 hover:bg-green-100 rounded-full px-3 py-1.5 transition cursor-pointer ${bulkUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {bulkUploading
+                    ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700"></div>
+                    : <Upload className="w-3.5 h-3.5" />}
+                  טען קבצי JSON לספרייה
+                  <input type="file" multiple accept=".json" className="hidden" onChange={handleBulkUpload} disabled={bulkUploading} />
+                </label>
+                <button onClick={refreshLibrary} disabled={libraryLoading} title="רענן"
+                  className="text-gray-400 hover:text-green-600 transition disabled:opacity-50">
+                  <RefreshCw className={`w-4 h-4 ${libraryLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
             </div>
+
+            {bulkResults.length > 0 && (
+              <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">
+                  העלאה מרובה: {bulkResults.filter(r => r.status === 'success').length}/{bulkResults.length} נשמרו בהצלחה
+                  {bulkUploading && <span className="text-gray-400"> (מעלה...)</span>}
+                </p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {bulkResults.map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      {r.status === 'pending' && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400 shrink-0"></div>}
+                      {r.status === 'success' && <Check className="w-3.5 h-3.5 text-green-600 shrink-0" />}
+                      {r.status === 'error' && <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                      <span className="text-gray-700 truncate">{r.name}</span>
+                      {r.status === 'success' && <span className="text-gray-400 truncate">← {r.savedAs}</span>}
+                      {r.status === 'error' && <span className="text-red-500">{r.message}</span>}
+                    </div>
+                  ))}
+                </div>
+                {!bulkUploading && (
+                  <button onClick={() => setBulkResults([])} className="text-xs text-gray-400 hover:text-gray-600 mt-2">סגור</button>
+                )}
+              </div>
+            )}
 
             {libraryLoading && libraryFiles.length === 0 && (
               <p className="text-sm text-gray-400">טוען רשימת קבצים...</p>
