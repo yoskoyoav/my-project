@@ -256,7 +256,7 @@
             <h2>2. דרישות מוקדמות והכנה</h2>
             <p>לפני הרצת הכלי, יש לוודא את התנאים הבאים בבסיס הנתונים (GDB):</p>
             <ol>
-                <li><strong>תאימות סכמה (Schema):</strong> מבנה השדות בשכבת המקור (התוספת) ובשכבת היעד (הבסיס) חייב להיות זהה.</li>
+                <li><strong>תאימות סכמה (Schema):</strong> מבנה השדות בשכבת המקור (התוספת) ובשכבת היעד (הבסיס) חייב להיות זהה. מומלץ לוודא זאת עם קוד הבדיקה שבסעיף 7 (<a href="#schema-check">בדיקת התאמת סכמה לפני Append</a>).</li>
                 <li><strong>קיום שדה ParentGlobalID:</strong> בטבלאות המקושרות חייב להופיע שדה בשם <code>ParentGlobalID</code> מטיפוס GUID.</li>
                 <li><strong>סגירת נעילות:</strong> מומלץ לסגור את הטבלאות מתוצג תצוגה פעיל ב-ArcGIS Pro או לוודא שאין תהליך אחר שנאחז בקבצים.</li>
             </ol>
@@ -382,7 +382,7 @@ append_survey_with_multiple_tables(source_points, target_points, tables_list)
             <div class="callout callout-warning">
                 <strong>שגיאה: <code>ExecuteError: Failed to execute (Append)...</code></strong><br>
                 <strong>סיבה:</strong> אי-תאימות בשמות השדות בין טבלת המקור שטבלת היעד.<br>
-                <strong>פתרון:</strong> ודא ששמות השדות בטבלאות זהים בדיוק, או שנה את פרמטר המיזוג ל-<code>schema_type="NO_TEST"</code>.
+                <strong>פתרון:</strong> הריצו את קוד הבדיקה (<a href="#schema-check">סעיף 7</a>) כדי לראות בדיוק אילו שדות או ערכים לא תואמים. שימו לב: הסקריפט כבר משתמש ב-<code>"NO_TEST"</code>, כך ששגיאה כאן נובעת בדרך כלל מסוג שדה שונה, טקסט ארוך מהשדה ביעד, או ערך Null בשדה שלא מאפשר אותו.
             </div>
 
             <div class="callout callout-warning">
@@ -391,6 +391,386 @@ append_survey_with_multiple_tables(source_points, target_points, tables_list)
                 <strong>פתרון:</strong> סגור טבלאות פתוחות (Attribute Tables), שמור עריכות (Save Edits) והרץ את הסקריפט שוב.
             </div>
         </section>
+
+        <section id="schema-check">
+            <h2>7. 🔍 בדיקת התאמת סכמה לפני Append</h2>
+            <p>
+                לפני כל מיזוג מומלץ להריץ קוד בדיקה קצר שמשווה בין המקור ליעד ומדפיס <strong>רק את מה שלא זהה</strong>.
+                הבדיקה לא משנה שום דבר בנתונים. היא רק מראה מראש אילו שדות יאבדו, אילו ערכים ייחתכו ואילו ערכים לא מתאימים ל-Domain של היעד,
+                כדי שאפשר יהיה לתקן <em>לפני</em> שהמיזוג משנה את שכבת הבסיס.
+            </p>
+
+            <div class="callout callout-info">
+                <strong>💡 למה זה חשוב דווקא בסקריפט הזה:</strong><br>
+                הסקריפט מבצע כמה פעולות ברצף: מיזוג הנקודות, עדכון <code>ParentGlobalID</code> בטבלאות המקור, ואחר כך מיזוג הטבלאות.
+                אם בעיה מתגלה רק באמצע, למשל בטבלה המקושרת השלישית, הנתונים נשארים <strong>במצב חלקי</strong>: הנקודות כבר נכנסו, והקישורים בטבלאות המקור כבר שונו.
+                בדיקה מוקדמת מונעת את המצב הזה.
+            </div>
+
+            <h3>מה הבדיקה בודקת</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>סימון</th>
+                        <th>משמעות</th>
+                        <th>מה נבדק</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>❌</td>
+                        <td><strong>בעיה חוסמת</strong>: כשל או אובדן נתונים</td>
+                        <td>שדה שקיים רק במקור · סוג שדה שונה · טקסט במקור ארוך מהשדה ביעד (נבדק לפי <strong>הערכים בפועל</strong>) · ערך ריק בשדה שלא מאפשר Null ביעד · חוסר <code>ParentGlobalID</code> בטבלה מקושרת</td>
+                    </tr>
+                    <tr>
+                        <td>⚠️</td>
+                        <td><strong>אזהרה</strong>: כדאי לבדוק</td>
+                        <td>שדה שקיים רק ביעד (יקבל Null) · ערכים במקור שלא קיימים ב-Coded Domain של היעד (מוצגים הערכים עצמם)</td>
+                    </tr>
+                    <tr>
+                        <td>ℹ️</td>
+                        <td><strong>לידיעה בלבד</strong>: לא משפיע על Append</td>
+                        <td>הבדלי Alias ו-Domain. מוצגים רק עם <code>show_info=True</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="step-box">
+                <h3><span class="step-number">1</span> העתקת קוד הבדיקה</h3>
+                <p>פתחו את המחברת (Notebook) או את חלון ה-Python, הדביקו את הקוד הבא בתא נפרד והריצו אותו (<strong>Shift+Enter</strong>). התא רק מגדיר את הפונקציות ולא מריץ בדיקה.</p>
+<pre><code># -*- coding: utf-8 -*-
+"""
+בדיקת התאמת סכמה לפני Append
+=============================
+משווה בין שכבת/טבלת מקור לשכבת/טבלת יעד ומדפיס רק את מה שלא זהה:
+
+  ❌  יגרום לכשל או לאובדן נתונים ב-Append
+  ⚠️  סיכון - כדאי לבדוק
+  ℹ️  הבדל שלא משפיע על Append (לידיעה בלבד)
+
+הבדיקות:
+  1. שדות שקיימים רק במקור / רק ביעד
+  2. סוג שדה שונה
+  3. אורך טקסט - כולל בדיקה בפועל האם יש במקור ערכים ארוכים מהשדה ביעד
+  4. שדה לא-Nullable ביעד, כשבמקור יש ערכים ריקים
+  5. ערכים במקור שלא קיימים ב-Coded Domain של היעד
+  6. הבדלי Alias / Domain (לידיעה)
+  7. קיום ParentGlobalID בטבלאות המקושרות
+
+הבדיקה קוראת את הנתונים ישירות מה-GDB (catalogPath),
+כך שבחירות ו-Definition Query במפה לא משפיעים עליה.
+הסקריפט לא משנה שום דבר בנתונים.
+"""
+
+import os
+import arcpy
+
+SKIP_TYPES = {"OID", "GlobalID", "Geometry"}
+SKIP_NAMES = {"shape_length", "shape_area", "shape.starea()", "shape.stlength()"}
+
+
+# ------------------------------------------------------------------
+# פונקציות עזר
+# ------------------------------------------------------------------
+def _path(ds):
+    """מחזיר נתיב מלא לנתונים, גם אם התקבל שם שכבה מהמפה."""
+    return arcpy.Describe(ds).catalogPath
+
+
+def _workspace(path):
+    """מטפס מהנתיב עד ה-GDB (מדלג על Feature Dataset)."""
+    ws = os.path.dirname(path)
+    while ws and arcpy.Describe(ws).dataType not in ("Workspace", "Folder"):
+        ws = os.path.dirname(ws)
+    return ws
+
+
+def _fields(path):
+    return {
+        f.name.lower(): f
+        for f in arcpy.ListFields(path)
+        if f.type not in SKIP_TYPES and f.name.lower() not in SKIP_NAMES
+    }
+
+
+def _coded_domains(path):
+    """מילון: שם דומיין -&gt; קבוצת הקודים המותרים (רק Coded Value)."""
+    try:
+        return {
+            d.name: set(d.codedValues.keys())
+            for d in arcpy.da.ListDomains(_workspace(path))
+            if d.domainType == "CodedValue"
+        }
+    except Exception:
+        return {}
+
+
+def _scan_values(path, field_names):
+    """
+    סורק את המקור פעם אחת ומחזיר לכל שדה:
+    אורך מקסימלי, מספר ערכי Null, וקבוצת הערכים השונים.
+    """
+    stats = {n: {"max_len": 0, "nulls": 0, "values": set()} for n in field_names}
+    if not field_names:
+        return stats
+    with arcpy.da.SearchCursor(path, field_names) as cur:
+        for row in cur:
+            for name, val in zip(field_names, row):
+                s = stats[name]
+                if val is None:
+                    s["nulls"] += 1
+                    continue
+                if isinstance(val, str):
+                    s["max_len"] = max(s["max_len"], len(val))
+                if len(s["values"]) &lt; 5000:
+                    s["values"].add(val)
+    return stats
+
+
+# ------------------------------------------------------------------
+# השוואה של צמד אחד
+# ------------------------------------------------------------------
+def compare_pair(source, target, is_related_table=False):
+    src, tgt = _path(source), _path(target)
+    sf, tf = _fields(src), _fields(tgt)
+    t_domains = _coded_domains(tgt)
+
+    errors, warnings, infos = [], [], []
+
+    # 1. שדות חסרים
+    for n in sorted(set(sf) - set(tf)):
+        errors.append(f"השדה '{sf[n].name}' קיים רק במקור - הערכים שלו לא ייכנסו ליעד")
+    for n in sorted(set(tf) - set(sf)):
+        warnings.append(f"השדה '{tf[n].name}' קיים רק ביעד - יקבל Null ברשומות החדשות")
+
+    common = sorted(set(sf) &amp; set(tf))
+    stats = _scan_values(src, [sf[n].name for n in common])
+
+    for n in common:
+        a, b = sf[n], tf[n]
+        st = stats[a.name]
+
+        # 2. סוג שדה
+        if a.type != b.type:
+            errors.append(f"'{a.name}': סוג שונה - מקור {a.type}, יעד {b.type}")
+
+        # 3. אורך טקסט
+        if a.type == "String" and b.type == "String":
+            if st["max_len"] &gt; b.length:
+                errors.append(
+                    f"'{a.name}': במקור יש טקסט באורך {st['max_len']} תווים, "
+                    f"אבל השדה ביעד מוגבל ל-{b.length} - ייחתך או ייכשל"
+                )
+            elif a.length &gt; b.length:
+                warnings.append(
+                    f"'{a.name}': אורך מקור {a.length} &gt; אורך יעד {b.length} "
+                    f"(כרגע הערך הארוך ביותר הוא {st['max_len']}, אז אין בעיה בפועל)"
+                )
+
+        # 4. Nullable
+        if not b.isNullable and st["nulls"] &gt; 0:
+            errors.append(
+                f"'{a.name}': השדה ביעד לא מאפשר Null, ובמקור יש {st['nulls']} ערכים ריקים"
+            )
+
+        # 5. ערכים מחוץ ל-Domain של היעד
+        if b.domain and b.domain in t_domains:
+            allowed = t_domains[b.domain]
+            bad = sorted(str(v) for v in st["values"] if v not in allowed)
+            if bad:
+                sample = ", ".join(repr(v) for v in bad[:10])
+                more = f" ועוד {len(bad) - 10}" if len(bad) &gt; 10 else ""
+                warnings.append(
+                    f"'{a.name}': {len(bad)} ערכים שלא קיימים בדומיין '{b.domain}' של היעד: "
+                    f"{sample}{more}"
+                )
+
+        # 6. הבדלים לידיעה בלבד
+        if (a.domain or "") != (b.domain or ""):
+            infos.append(f"'{a.name}': דומיין שונה - מקור '{a.domain}', יעד '{b.domain}'")
+        if a.aliasName != b.aliasName:
+            infos.append(f"'{a.name}': Alias שונה - '{a.aliasName}' / '{b.aliasName}'")
+
+    # 7. ParentGlobalID בטבלאות מקושרות
+    if is_related_table:
+        for label, flds in (("המקור", sf), ("היעד", tf)):
+            if "parentglobalid" not in flds:
+                errors.append(f"אין שדה ParentGlobalID ב{label} - הסקריפט ייכשל")
+
+    return src, tgt, errors, warnings, infos
+
+
+# ------------------------------------------------------------------
+# הדפסה
+# ------------------------------------------------------------------
+def _print_result(title, src, tgt, errors, warnings, infos, show_info):
+    print("=" * 70)
+    print(title)
+    print(f"  מקור: {src}")
+    print(f"  יעד:  {tgt}")
+    print("-" * 70)
+    if not errors and not warnings:
+        print("  ✅ אין הבדלים שמשפיעים על Append")
+    for e in errors:
+        print(f"  ❌ {e}")
+    for w in warnings:
+        print(f"  ⚠️  {w}")
+    if show_info:
+        for i in infos:
+            print(f"  ℹ️  {i}")
+    elif infos:
+        print(f"  ℹ️  ועוד {len(infos)} הבדלים שלא משפיעים (Alias/Domain) - show_info=True להצגה")
+    print()
+
+
+def check_survey(source_fc, target_fc, related_tables_mapping=None, show_info=False):
+    """
+    מקבל את אותם פרמטרים כמו append_survey_with_multiple_tables,
+    ובודק את כל הצמדים לפני המיזוג.
+    """
+    total_err = total_warn = 0
+
+    src, tgt, e, w, i = compare_pair(source_fc, target_fc)
+    _print_result("שכבת הנקודות", src, tgt, e, w, i, show_info)
+    total_err += len(e)
+    total_warn += len(w)
+
+    for s, t in related_tables_mapping or []:
+        src, tgt, e, w, i = compare_pair(s, t, is_related_table=True)
+        _print_result(f"טבלה מקושרת: {os.path.basename(src)}", src, tgt, e, w, i, show_info)
+        total_err += len(e)
+        total_warn += len(w)
+
+    print("=" * 70)
+    print(f"סיכום: {total_err} בעיות חוסמות (❌), {total_warn} אזהרות (⚠️)")
+    if total_err == 0:
+        print("אפשר להריץ Append.")
+    else:
+        print("מומלץ לטפל בבעיות ❌ לפני ה-Append.")
+</code></pre>
+            </div>
+
+            <div class="step-box">
+                <h3><span class="step-number">2</span> הרצת הבדיקה</h3>
+                <p>בתא חדש, הגדירו את השכבות והטבלאות <strong>בדיוק כמו בהרצת המיזוג</strong> (סעיף 4, שלב 3) וקראו לפונקציה <code>check_survey</code>:</p>
+<pre><code>source_points = "Survey_A_Points"
+target_points = "Survey_B_Points"
+
+tables_list = [
+    ("Survey_A_Table1", "Survey_B_Table1"),
+    ("Survey_A_Table2", "Survey_B_Table2"),
+    ("Survey_A_Table3", "Survey_B_Table3"),
+    ("Survey_A_Table4", "Survey_B_Table4")
+]
+
+# בדיקה רגילה - בעיות ואזהרות בלבד
+check_survey(source_points, target_points, tables_list)
+
+# בדיקה מלאה - כולל הבדלי Alias ו-Domain
+# check_survey(source_points, target_points, tables_list, show_info=True)
+</code></pre>
+                <p>אפשר להשתמש בשמות שכבות מהמפה, כולל שכבות בתוך קבוצה (<code>"שם_קבוצה\\שם_שכבה"</code>), או בנתיבים מלאים.
+                הבדיקה ממירה אוטומטית כל שכבה לנתיב המלא שלה ב-GDB, כך <strong>שבחירות (Selection) ו-Definition Query במפה לא משפיעים עליה</strong>.</p>
+            </div>
+
+            <div class="step-box">
+                <h3><span class="step-number">3</span> קריאת התוצאה</h3>
+                <p>לכל צמד (שכבת הנקודות וכל טבלה מקושרת) מודפס בלוק נפרד, ובסוף מופיע סיכום. לדוגמה:</p>
+<pre><code>======================================================================
+שכבת הנקודות
+  מקור: C:\Data\Lavi_2026.gdb\smy_survey_Lavi
+  יעד:  C:\Data\Lachish_2022.gdb\smy_Lachish
+----------------------------------------------------------------------
+  ❌ השדה 'StandType' קיים רק במקור - הערכים שלו לא ייכנסו ליעד
+  ❌ 'GeneralImpression': במקור יש טקסט באורך 436 תווים, אבל השדה ביעד מוגבל ל-120 - ייחתך או ייכשל
+  ⚠️  השדה 'ForestAgeCompositionOther' קיים רק ביעד - יקבל Null ברשומות החדשות
+  ⚠️  'relativeDensity': 1 ערכים שלא קיימים בדומיין 's_relativeDensity' של היעד: 'גבוה מאוד'
+  ℹ️  ועוד 9 הבדלים שלא משפיעים (Alias/Domain) - show_info=True להצגה
+
+======================================================================
+סיכום: 2 בעיות חוסמות (❌), 2 אזהרות (⚠️)
+מומלץ לטפל בבעיות ❌ לפני ה-Append.
+</code></pre>
+                <p>✅ אם בכל הבלוקים מופיע <strong>"אין הבדלים שמשפיעים על Append"</strong>, אפשר להמשיך ישר למיזוג.</p>
+            </div>
+
+            <h3>מה עושים עם כל סוג בעיה</h3>
+            <ul>
+                <li><strong>טקסט ארוך מהשדה ביעד:</strong> הגדילו את אורך השדה ביעד (<strong>Fields View</strong> או <code>arcpy.management.AlterField(..., field_length=800)</code>) לפני המיזוג.</li>
+                <li><strong>שדה שקיים רק במקור:</strong> אם המידע חשוב, הוסיפו את השדה ליעד עם <code>AddField</code> באותו שם וסוג. אם לא, אפשר להתעלם. הוא פשוט לא ייכנס.</li>
+                <li><strong>סוג שדה שונה:</strong> צריך להחליט איזה סוג נכון ולהתאים את אחד הצדדים. אין פתרון אוטומטי.</li>
+                <li><strong>ערכים מחוץ ל-Domain:</strong> הוסיפו את הערך החדש ל-Domain של היעד, או תקנו את הערך במקור לערך קיים.</li>
+                <li><strong>חוסר <code>ParentGlobalID</code>:</strong> בדקו שהטבלה הנכונה הוגדרה ברשימה. זו בדרך כלל טעות בשם או בנתיב.</li>
+            </ul>
+
+            <h3>⚖️ ההבדל בין קוד הבדיקה לבין <code>TEST</code> ב-Append</h3>
+            <p>
+                כלי <code>Append</code> מקבל פרמטר <code>schema_type</code> שקובע מה קורה כשהסכמות לא זהות.
+                זה לא תחליף לבדיקה המוקדמת:
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>קוד הבדיקה (<code>check_survey</code>)</th>
+                        <th><code>Append</code> עם <code>"TEST"</code></th>
+                        <th><code>Append</code> עם <code>"NO_TEST"</code></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>משנה נתונים?</strong></td>
+                        <td>✅ לא, קריאה בלבד</td>
+                        <td>כן, אם הסכמות תואמות</td>
+                        <td>כן, תמיד</td>
+                    </tr>
+                    <tr>
+                        <td><strong>כשיש הבדל בשדות</strong></td>
+                        <td>מדפיס את כל ההבדלים, בכל הטבלאות, בבת אחת</td>
+                        <td>נכשל עם שגיאה ולא מוסיף אף רשומה</td>
+                        <td>ממשיך: מתאים לפי שם ומשמיט בשקט את מה שלא תואם</td>
+                    </tr>
+                    <tr>
+                        <td><strong>בודק ערכים בפועל</strong> (אורך טקסט, Domain, Null)</td>
+                        <td>✅ כן</td>
+                        <td>לא, רק את הגדרת השדות</td>
+                        <td>לא</td>
+                    </tr>
+                    <tr>
+                        <td><strong>בסקריפט המיזוג המלא</strong></td>
+                        <td>רץ לפני, ולא משאיר שום שינוי</td>
+                        <td>⚠️ עלול להיכשל באמצע ולהשאיר מצב חלקי</td>
+                        <td>⚠️ עלול לאבד נתונים בלי הודעה</td>
+                    </tr>
+                    <tr>
+                        <td><strong>מתי להשתמש</strong></td>
+                        <td>תמיד, לפני כל מיזוג</td>
+                        <td>כשהסכמות אמורות להיות זהות לגמרי ורוצים "רשת ביטחון"</td>
+                        <td>אחרי שהבדיקה עברה, או כשהשמטת שדות היא בכוונה</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="callout callout-warning">
+                <strong>⚠️ למה לא פשוט להחליף ל-<code>"TEST"</code>?</strong><br>
+                בסקריפט המיזוג יש כמה פעולות <code>Append</code> ברצף. עם <code>"TEST"</code>, אם שכבת הנקודות תואמת אבל אחת הטבלאות המקושרות לא,
+                הנקודות כבר ימוזגו וה-<code>ParentGlobalID</code> בטבלאות המקור כבר יעודכן, ורק אז המיזוג ייעצר.
+                בנוסף, <code>"TEST"</code> לא מזהה טקסט ארוך מדי או ערכים מחוץ ל-Domain, כי הוא בודק רק את מבנה השדות.
+                לכן הדרך הבטוחה היא לבדוק קודם ואז למזג.
+            </div>
+
+            <div class="callout callout-success">
+                <strong>✅ סדר עבודה מומלץ:</strong>
+                <ol style="margin-top: 8px; margin-bottom: 0;">
+                    <li>גבו את ה-GDB (העתק של התיקייה).</li>
+                    <li>הריצו את <code>check_survey</code>.</li>
+                    <li>טפלו בכל בעיות ה-❌, והחליטו לגבי ה-⚠️.</li>
+                    <li>הריצו את <code>check_survey</code> שוב, עד שאין ❌.</li>
+                    <li>הריצו את <code>append_survey_with_multiple_tables</code> (עם <code>"NO_TEST"</code>, שכבר בטוח כי הבדיקה עברה).</li>
+                </ol>
+            </div>
+        </section>
+
     </main>
 
     <footer class="footer">
